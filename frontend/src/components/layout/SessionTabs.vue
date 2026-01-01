@@ -58,8 +58,8 @@ const handleAdd = () => {
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 1.5rem 0rem;
-  background: #070c14;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--khz-surface-elevated);
+  border-bottom: 1px solid var(--khz-border-soft);
 }
 
 
@@ -70,7 +70,7 @@ const handleAdd = () => {
 
 .tab-item {
   position: relative;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--khz-text-muted);
   border-radius: 10px 10px 0 0;
   padding: 0;
   height: auto;
@@ -84,9 +84,9 @@ const handleAdd = () => {
 }
 
 .tab-item.active {
-  color: #f6fbff;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: #0f1624;
+  color: var(--khz-text);
+  border-color: var(--khz-border);
+  background: var(--khz-card);
   box-shadow: inset 0 -2px 0 #1c64f2;
 }
 
@@ -95,6 +95,6 @@ const handleAdd = () => {
 }
 
 .add-tab {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--khz-icon);
 }
 </style>

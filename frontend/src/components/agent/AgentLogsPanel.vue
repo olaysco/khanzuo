@@ -88,12 +88,13 @@ const handleRefresh = () => {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.75rem;
+  color: var(--khz-text-muted);
 }
 
 .logs-card {
   border-radius: 18px;
-  background: #0c1422;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--khz-panel);
+  border: 1px solid var(--khz-border);
   flex: 1;
   display: flex;
   flex-direction: column;

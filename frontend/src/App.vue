@@ -74,6 +74,16 @@ watch(selectedLanguage, (value) => {
   locale.value = value
 })
 
+watch(
+  resolvedTheme,
+  (value) => {
+    if (typeof document !== 'undefined') {
+      document.body.dataset.theme = value
+    }
+  },
+  { immediate: true },
+)
+
 const updateTargetUrl = (value) => {
   targetUrl.value = value
 }
@@ -216,16 +226,47 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-shell {
+  --khz-surface: #03070f;
+  --khz-surface-elevated: #070c14;
+  --khz-panel: #0c1422;
+  --khz-card: #0b1220;
+  --khz-border: rgba(255, 255, 255, 0.05);
+  --khz-border-soft: rgba(255, 255, 255, 0.04);
+  --khz-text: #f5f8ff;
+  --khz-text-muted: rgba(255, 255, 255, 0.72);
+  --khz-chip-bg: rgba(7, 11, 19, 0.95);
+  --khz-chip-border: rgba(255, 255, 255, 0.08);
+  --khz-pill-bg: rgba(255, 255, 255, 0.08);
+  --khz-divider: rgba(255, 255, 255, 0.12);
+  --khz-icon: rgba(255, 255, 255, 0.78);
+  --khz-icon-soft: rgba(255, 255, 255, 0.45);
+  --khz-input-bg: #040914;
+  --khz-input-border: rgba(255, 255, 255, 0.55);
+
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #03070f;
-  color: #f5f8ff;
+  background: var(--khz-surface);
+  color: var(--khz-text);
 }
 
 .app-shell[data-theme='light'] {
-  background: #f8f9fc;
-  color: #0f172a;
+  --khz-surface: #f8f9fc;
+  --khz-surface-elevated: #ffffff;
+  --khz-panel: #ffffff;
+  --khz-card: #ffffff;
+  --khz-border: rgba(15, 23, 42, 0.12);
+  --khz-border-soft: rgba(15, 23, 42, 0.05);
+  --khz-text: #0f172a;
+  --khz-text-muted: rgba(15, 23, 42, 0.65);
+  --khz-chip-bg: rgba(248, 250, 255, 0.95);
+  --khz-chip-border: rgba(15, 23, 42, 0.08);
+  --khz-pill-bg: rgba(15, 23, 42, 0.08);
+  --khz-divider: rgba(15, 23, 42, 0.12);
+  --khz-icon: rgba(51, 65, 85, 0.9);
+  --khz-icon-soft: rgba(99, 115, 139, 0.85);
+  --khz-input-bg: #eef2ff;
+  --khz-input-border: rgba(99, 102, 241, 0.35);
 }
 
 .app-body {

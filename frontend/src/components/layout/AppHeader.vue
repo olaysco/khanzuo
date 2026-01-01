@@ -131,8 +131,8 @@ const handleStart = () => {
   align-items: center;
   gap: 1.5rem;
   padding: 1.1rem 1.5rem 1rem;
-  background: #070c14;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--khz-surface-elevated);
+  border-bottom: 1px solid var(--khz-border-soft);
 }
 
 .brand {
@@ -170,7 +170,7 @@ const handleStart = () => {
 }
 
 .ghost-control {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--khz-icon);
 }
 
 .status-pill {
@@ -178,9 +178,10 @@ const handleStart = () => {
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.85rem;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--khz-pill-bg);
   border-radius: 999px;
   font-size: 0.85rem;
+  color: var(--khz-text-muted);
 }
 
 .status-dot {
@@ -204,7 +205,7 @@ const handleStart = () => {
 }
 
 .prefix-icon {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--khz-icon-soft);
 }
 
 @media (max-width: 1100px) {

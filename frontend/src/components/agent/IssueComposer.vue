@@ -66,8 +66,8 @@ const handleSend = () => {
 <style scoped>
 .composer {
   border-radius: 18px;
-  background: #0c1422;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--khz-panel);
+  border: 1px solid var(--khz-border);
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -84,17 +84,17 @@ const handleSend = () => {
 .composer-input :deep(.n-input) {
   flex: 1;
   border-radius: 18px;
-  --n-border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  --n-border-hover: 1px solid rgba(148, 163, 184, 0.8);
-  --n-border-focus: 1px solid rgba(148, 163, 184, 0.9);
-  --n-color: #040914;
-  --n-color-hover: #040914;
-  --n-color-focus: #040914;
-  --n-color-disabled: #040914;
-  --n-text-color: rgba(255, 255, 255, 0.9);
-  --n-placeholder-color: rgba(148, 163, 184, 0.8);
+  --n-border: 1px solid var(--khz-input-border) !important;
+  --n-border-hover: 1px solid var(--khz-input-border);
+  --n-border-focus: 1px solid var(--khz-input-border);
+  --n-color: var(--khz-input-bg);
+  --n-color-hover: var(--khz-input-bg);
+  --n-color-focus: var(--khz-input-bg);
+  --n-color-disabled: var(--khz-input-bg);
+  --n-text-color: var(--khz-text);
+  --n-placeholder-color: var(--khz-text-muted);
   overflow: hidden;
-  background-color: #040914;
+  background-color: var(--khz-input-bg);
 }
 
 .composer-input :deep(.n-input__textarea-el) {
@@ -109,7 +109,7 @@ const handleSend = () => {
 .composer-disclaimer {
   font-size: 0.75rem;
   padding-left: 0.25rem;
-  opacity: 0.55;
+  color: var(--khz-text-muted);
 }
 
 .send-button {

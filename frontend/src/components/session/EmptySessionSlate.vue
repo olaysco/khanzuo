@@ -53,8 +53,8 @@ const statusClasses = computed(() => ['status-dot', props.streamReady ? 'ok' : '
   height: 96px;
   margin: 0 auto 1.5rem auto;
   border-radius: 50%;
-  border: 1px dashed rgba(255, 255, 255, 0.08);
-  background: rgba(12, 18, 30, 0.95);
+  border: 1px dashed var(--khz-border);
+  background: var(--khz-panel);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -98,6 +98,6 @@ const statusClasses = computed(() => ['status-dot', props.streamReady ? 'ok' : '
 .divider {
   width: 1px;
   height: 12px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--khz-divider);
 }
 </style>

@@ -52,10 +52,10 @@ const { t } = useI18n()
   justify-content: space-between;
   align-items: center;
   padding: 0.8rem 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  background: #070c14;
+  border-top: 1px solid var(--khz-border-soft);
+  background: var(--khz-surface-elevated);
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--khz-text-muted);
 }
 
 .footer-segment {
@@ -67,14 +67,14 @@ const { t } = useI18n()
 .divider {
   width: 1px;
   height: 14px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--khz-divider);
 }
 
 .dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--khz-icon-soft);
 }
 
 @media (max-width: 900px) {

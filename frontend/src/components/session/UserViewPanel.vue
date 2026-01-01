@@ -38,17 +38,17 @@ const { t } = useI18n()
 
 .view-label {
   width: fit-content;
-  background: rgba(7, 11, 19, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.75);
+  background: var(--khz-chip-bg);
+  border: 1px solid var(--khz-chip-border);
+  color: var(--khz-text-muted);
 }
 
 .view-card {
   flex: 1;
   border-radius: 26px;
-  background: #0b1220;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  background: var(--khz-card);
+  border: 1px solid var(--khz-border);
+  box-shadow: inset 0 0 0 1px var(--khz-border-soft);
   min-height: 540px;
 }
 
