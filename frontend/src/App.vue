@@ -7,12 +7,12 @@ import {
   darkTheme,
   useOsTheme,
 } from 'naive-ui'
-import SessionTabs from '@/components/layout/SessionTabs.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import UserViewPanel from '@/components/session/UserViewPanel.vue'
-import AgentLogsPanel from '@/components/agent/AgentLogsPanel.vue'
-import IssueComposer from '@/components/agent/IssueComposer.vue'
-import AppFooter from '@/components/layout/AppFooter.vue'
+import SessionTabs from '@/components/layout/navigation/SessionTabs.vue'
+import AppHeader from '@/components/layout/header/AppHeader.vue'
+import UserViewPanel from '@/components/panels/session/UserViewPanel.vue'
+import AgentLogsPanel from '@/components/panels/agent/AgentLogsPanel.vue'
+import IssueComposer from '@/components/panels/agent/IssueComposer.vue'
+import AppFooter from '@/components/layout/footer/AppFooter.vue'
 import { languageOptions } from '@/langs/index.js'
 
 const { t, locale } = useI18n()

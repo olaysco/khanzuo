@@ -1,7 +1,7 @@
 <script setup>
 import { NCard, NTag } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import EmptySessionSlate from './EmptySessionSlate.vue'
+import EmptySessionSlate from '@/components/common/molecules/EmptySessionSlate.vue'
 
 const props = defineProps({
   streamReady: {

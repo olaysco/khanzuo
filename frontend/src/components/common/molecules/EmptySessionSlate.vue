@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NText, NIcon } from 'naive-ui'
-import { SearchOutline } from '@vicons/ionicons5'
+import { LaptopOutline } from '@vicons/ionicons5'
 
 const props = defineProps({
   streamReady: {
@@ -23,7 +23,7 @@ const statusClasses = computed(() => ['status-dot', props.streamReady ? 'ok' : '
   <div class="empty-slate">
     <div class="icon-wrapper">
       <n-icon size="64" depth="2">
-        <SearchOutline />
+        <LaptopOutline />
       </n-icon>
     </div>
     <n-text class="view-title">{{ t('ui.view.waitingTitle') }}</n-text>

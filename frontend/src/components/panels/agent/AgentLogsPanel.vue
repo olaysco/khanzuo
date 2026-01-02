@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NCard, NButton, NText, NIcon, NEmpty, NScrollbar } from 'naive-ui'
-import { RefreshOutline, DocumentTextOutline } from '@vicons/ionicons5'
+import { RefreshOutline, SparklesOutline } from '@vicons/ionicons5'
 
 const props = defineProps({
   logs: {
@@ -61,7 +61,7 @@ const handleRefresh = () => {
           <n-empty :description="t('ui.logs.empty')">
             <template #icon>
               <n-icon size="48">
-                <DocumentTextOutline />
+                <SparklesOutline />
               </n-icon>
             </template>
           </n-empty>
