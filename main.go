@@ -2,8 +2,10 @@ package main
 
 import (
 	"embed"
+	"runtime"
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
@@ -12,14 +14,33 @@ import (
 var assets embed.FS
 
 func main() {
+	const MIN_WINDOW_WIDTH = 1024
+	const MIN_WINDOW_HEIGHT = 768
+	windowWidth, windowHeight, maximised := MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT, true
+	windowStartState := options.Normal
+	if maximised {
+		windowStartState = options.Maximised
+	}
+	isMacOS := runtime.GOOS == "darwin"
+	appMenu := menu.NewMenu()
+	if isMacOS {
+		appMenu.Append(menu.AppMenu())
+		appMenu.Append(menu.EditMenu())
+		appMenu.Append(menu.WindowMenu())
+	}
+
 	// Create an instance of the app structure
 	app := NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "khanzuo",
-		Width:  1024,
-		Height: 768,
+		Title:            "khanzuo",
+		Width:            windowWidth,
+		Height:           windowHeight,
+		WindowStartState: windowStartState,
+		MinWidth:         MIN_WINDOW_WIDTH,
+		MinHeight:        MIN_WINDOW_HEIGHT,
+		Menu:             appMenu,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
