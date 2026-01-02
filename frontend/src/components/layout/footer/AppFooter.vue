@@ -1,6 +1,8 @@
 <script setup>
-import { NText } from 'naive-ui'
+import { NText, NTooltip } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import { SettingsOutline } from '@vicons/ionicons5'
+import { NIcon } from 'naive-ui'
 
 const props = defineProps({
   agentStatus: {
@@ -21,7 +23,13 @@ const props = defineProps({
   },
 })
 
+const emit = defineEmits(['open-settings'])
+
 const { t } = useI18n()
+
+const handleSettingsClick = () => {
+  emit('open-settings')
+}
 </script>
 
 <template>
@@ -39,6 +47,17 @@ const { t } = useI18n()
       <n-text strong>{{ props.captureStatus }}</n-text>
     </div>
     <div class="footer-segment">
+      <n-tooltip placement="top" trigger="hover">
+        <template #trigger>
+          <button class="settings-button" type="button" @click="handleSettingsClick">
+            <n-icon size="16">
+              <SettingsOutline />
+            </n-icon>
+          </button>
+        </template>
+        Open settings
+      </n-tooltip>
+      <span class="divider" />
       <n-text depth="3">{{ t('ui.footer.serverTime') }}</n-text>
       <span class="dot" />
       <n-text strong>{{ props.serverTime }}</n-text>
@@ -75,6 +94,25 @@ const { t } = useI18n()
   height: 4px;
   border-radius: 50%;
   background: var(--khz-icon-soft);
+}
+
+.settings-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--khz-border);
+  background: transparent;
+  color: var(--khz-icon);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.settings-button:hover {
+  border-color: rgba(64, 152, 255, 0.5);
+  color: #7db2ff;
+  background: rgba(64, 152, 255, 0.12);
 }
 
 @media (max-width: 900px) {

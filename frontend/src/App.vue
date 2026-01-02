@@ -13,6 +13,7 @@ import UserViewPanel from '@/components/panels/session/UserViewPanel.vue'
 import AgentLogsPanel from '@/components/panels/agent/AgentLogsPanel.vue'
 import IssueComposer from '@/components/panels/agent/IssueComposer.vue'
 import AppFooter from '@/components/layout/footer/AppFooter.vue'
+import SettingsDialog from '@/pages/SettingsDialog.vue'
 import { languageOptions } from '@/langs/index.js'
 
 const { t, locale } = useI18n()
@@ -34,6 +35,8 @@ const tabs = ref([
   { id: 'session-3', title: 'Session 3' },
 ])
 const activeTabId = ref('session-3')
+const showSettings = ref(false)
+const selectedAgent = ref('codex')
 let syncTimer = null
 let clockTimer = null
 
@@ -160,6 +163,27 @@ const refreshLogs = () => {
   }, 1000)
 }
 
+const openSettings = () => {
+  showSettings.value = true
+}
+
+const closeSettings = () => {
+  showSettings.value = false
+}
+
+const handleSettingsSave = (settings) => {
+  themePreference.value = settings.theme
+  selectedLanguage.value = settings.language
+  selectedAgent.value = settings.agent
+  closeSettings()
+}
+
+const handleSettingsClearData = () => {
+  logs.value = []
+  promptValue.value = ''
+  captureStatus.value = 'Ready'
+}
+
 onMounted(() => {
   updateServerTime()
   clockTimer = setInterval(updateServerTime, 1000)
@@ -219,6 +243,19 @@ onBeforeUnmount(() => {
         version="v2.4.0-beta"
         :capture-status="captureStatus"
         :server-time="serverTime"
+        @open-settings="openSettings"
+      />
+      <settings-dialog
+        v-if="showSettings"
+        :language="selectedLanguage"
+        :theme="themePreference"
+        :agent="selectedAgent"
+        :language-options="languageSelectOptions"
+        :theme-options="themeOptions"
+        @close="closeSettings"
+        @cancel="closeSettings"
+        @save="handleSettingsSave"
+        @clear-data="handleSettingsClearData"
       />
     </div>
   </n-config-provider>
