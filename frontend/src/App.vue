@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import {
   NConfigProvider,
@@ -15,29 +16,18 @@ import IssueComposer from '@/components/panels/agent/IssueComposer.vue'
 import AppFooter from '@/components/layout/footer/AppFooter.vue'
 import SettingsDialog from '@/pages/SettingsDialog.vue'
 import { languageOptions } from '@/langs/index.js'
+import { useSessionStore, DEFAULT_TARGET_URL } from '@/stores/sessionStore.js'
 
 const { t, locale } = useI18n()
 
 const osTheme = useOsTheme()
 const themePreference = ref('dark')
 const selectedLanguage = ref(languageOptions[0]?.value ?? 'en-us')
-const targetUrl = ref('https://app.example.com/Login')
-const sessionStatus = ref('idle')
-const captureStatus = ref('Ready')
-const promptValue = ref('')
-const logs = ref([])
-const isSyncing = ref(false)
-const lastSync = ref('--:--')
 const serverTime = ref('--:--:-- UTC')
-const tabs = ref([
-  { id: 'login', title: 'Login Bug' },
-  { id: 'new-user', title: 'New User Flow' },
-  { id: 'session-3', title: 'Session 3' },
-])
-const activeTabId = ref('session-3')
+const sessionStore = useSessionStore()
+const { tabs, activeTabId, activeSession, activePromptValue } = storeToRefs(sessionStore)
 const showSettings = ref(false)
 const selectedAgent = ref('codex')
-let syncTimer = null
 let clockTimer = null
 
 const resolvedTheme = computed(() => {
@@ -69,9 +59,10 @@ const naiveUIDateLocale = computed(() => {
   return match?.naiveDateLocale
 })
 
-const agentStatusLabel = computed(() =>
-  sessionStatus.value === 'idle' ? t('ui.nav.statusIdle') : t('ui.nav.statusRunning'),
-)
+const agentStatusLabel = computed(() => {
+  const status = activeSession.value?.status ?? 'idle'
+  return status === 'idle' ? t('ui.nav.statusIdle') : t('ui.nav.statusRunning')
+})
 
 watch(selectedLanguage, (value) => {
   locale.value = value
@@ -88,7 +79,7 @@ watch(
 )
 
 const updateTargetUrl = (value) => {
-  targetUrl.value = value
+  sessionStore.updateTargetUrl(value)
 }
 
 const updateTheme = (value) => {
@@ -100,14 +91,11 @@ const updateLanguage = (value) => {
 }
 
 const handleTabSelect = (tabId) => {
-  activeTabId.value = tabId
+  sessionStore.setActiveTab(tabId)
 }
 
 const handleAddTab = () => {
-  const index = tabs.value.length + 1
-  const id = `session-${index}`
-  tabs.value.push({ id, title: `Session ${index}` })
-  activeTabId.value = id
+  sessionStore.addTab()
 }
 
 const updateServerTime = () => {
@@ -115,52 +103,28 @@ const updateServerTime = () => {
   serverTime.value = `${now.toUTCString().slice(17, 25)} UTC`
 }
 
-const addLog = (payload) => {
-  logs.value.push({
-    id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-    timestamp: new Date().toLocaleTimeString(),
-    status: payload.status ?? 'info',
-    title: payload.title,
-    detail: payload.detail,
-  })
-  lastSync.value = new Date().toLocaleTimeString()
-}
-
 const handleStartSession = () => {
-  sessionStatus.value = 'running'
-  addLog({
-    title: t('ui.events.sessionRequested'),
-    detail: targetUrl.value || t('ui.view.waitingDescription'),
-    status: 'success',
-  })
-  addLog({
-    title: t('ui.events.sessionReady'),
-    detail: t('ui.events.awaitingInput'),
-    status: 'warning',
-  })
-  if (syncTimer) clearTimeout(syncTimer)
-  syncTimer = setTimeout(() => {
-    sessionStatus.value = 'idle'
-  }, 4000)
+  const detail = activeSession.value?.targetUrl || t('ui.view.waitingDescription')
+  sessionStore.startSession([
+    {
+      title: t('ui.events.sessionRequested'),
+      detail,
+      status: 'success',
+    },
+    {
+      title: t('ui.events.sessionReady'),
+      detail: t('ui.events.awaitingInput'),
+      status: 'warning',
+    },
+  ])
 }
 
 const handlePromptSend = () => {
-  if (!promptValue.value.trim()) return
-  addLog({
-    title: promptValue.value.slice(0, 32),
-    detail: promptValue.value,
-    status: 'info',
-  })
-  promptValue.value = ''
+  sessionStore.submitPromptLog()
 }
 
 const refreshLogs = () => {
-  if (isSyncing.value) return
-  isSyncing.value = true
-  setTimeout(() => {
-    isSyncing.value = false
-    lastSync.value = new Date().toLocaleTimeString()
-  }, 1000)
+  sessionStore.refreshActiveLogs()
 }
 
 const openSettings = () => {
@@ -179,9 +143,7 @@ const handleSettingsSave = (settings) => {
 }
 
 const handleSettingsClearData = () => {
-  logs.value = []
-  promptValue.value = ''
-  captureStatus.value = 'Ready'
+  sessionStore.clearSessionData()
 }
 
 onMounted(() => {
@@ -190,7 +152,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (syncTimer) clearTimeout(syncTimer)
+  sessionStore.resetAllTimers()
   if (clockTimer) clearInterval(clockTimer)
 })
 </script>
@@ -210,8 +172,8 @@ onBeforeUnmount(() => {
         @add="handleAddTab"
       />
       <app-header
-        :url="targetUrl"
-        :status="sessionStatus"
+        :url="activeSession?.targetUrl || DEFAULT_TARGET_URL"
+        :status="activeSession?.status ?? 'idle'"
         :theme="themePreference"
         :language="selectedLanguage"
         :theme-options="themeOptions"
@@ -222,16 +184,16 @@ onBeforeUnmount(() => {
         @start="handleStartSession"
       />
       <div class="app-body">
-        <user-view-panel :stream-ready="true" :has-input="!!promptValue" />
+        <user-view-panel :stream-ready="true" :has-input="!!activePromptValue" />
         <aside class="sidebar">
           <agent-logs-panel
-            :logs="logs"
-            :is-syncing="isSyncing"
-            :last-sync="lastSync"
+            :logs="activeSession?.logs ?? []"
+            :is-syncing="activeSession?.isSyncing ?? false"
+            :last-sync="activeSession?.lastSync ?? '--:--'"
             @refresh="refreshLogs"
           />
           <issue-composer
-            v-model="promptValue"
+            v-model="activePromptValue"
             :placeholder="t('ui.prompts.placeholder')"
             :disclaimer="t('ui.prompts.disclaimer')"
             @send="handlePromptSend"
@@ -240,8 +202,8 @@ onBeforeUnmount(() => {
       </div>
       <app-footer
         :agent-status="agentStatusLabel"
-        version="v2.4.0-beta"
-        :capture-status="captureStatus"
+        version="v0.0.1-beta"
+        :capture-status="activeSession?.captureStatus ?? 'Ready'"
         :server-time="serverTime"
         @open-settings="openSettings"
       />
