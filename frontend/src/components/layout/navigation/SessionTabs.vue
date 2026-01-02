@@ -1,7 +1,7 @@
 <script setup>
-import { computed } from 'vue'
-import { NButton, NIcon } from 'naive-ui'
-import { AddOutline } from '@vicons/ionicons5'
+import { computed, ref } from 'vue'
+import { NButton, NIcon, NInput } from 'naive-ui'
+import { AddOutline, CreateOutline } from '@vicons/ionicons5'
 
 const props = defineProps({
   tabs: {
@@ -14,9 +14,11 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['select', 'add'])
+const emit = defineEmits(['select', 'add', 'rename'])
 
 const orderedTabs = computed(() => props.tabs)
+const editingTabId = ref(null)
+const editingTitle = ref('')
 
 const handleSelect = (id) => {
   emit('select', id)
@@ -24,6 +26,27 @@ const handleSelect = (id) => {
 
 const handleAdd = () => {
   emit('add')
+}
+
+const startEditing = (tab) => {
+  editingTabId.value = tab.id
+  editingTitle.value = tab.title
+}
+
+const cancelEditing = () => {
+  editingTabId.value = null
+  editingTitle.value = ''
+}
+
+const submitEditing = () => {
+  if (!editingTabId.value) return
+  const title = editingTitle.value?.trim()
+  if (!title) {
+    cancelEditing()
+    return
+  }
+  emit('rename', { id: editingTabId.value, title })
+  cancelEditing()
 }
 </script>
 
@@ -39,7 +62,30 @@ const handleAdd = () => {
         size="small"
         @click="handleSelect(tab.id)"
       >
-        <span class="tab-title">{{ tab.title }}</span>
+        <div v-if="editingTabId !== tab.id" class="tab-content">
+          <span class="tab-title">{{ tab.title }}</span>
+          <button
+            type="button"
+            class="tab-edit"
+            aria-label="Rename session"
+            @click.stop="startEditing(tab)"
+          >
+            <n-icon size="14">
+              <CreateOutline />
+            </n-icon>
+          </button>
+        </div>
+        <div v-else class="tab-editing" @click.stop>
+          <n-input
+            v-model:value="editingTitle"
+            size="tiny"
+            class="tab-input"
+            autofocus
+            @keyup.enter.stop.prevent="submitEditing"
+            @keyup.esc.stop.prevent="cancelEditing"
+            @blur="submitEditing"
+          />
+        </div>
       </n-button>
     </div>
     <n-button quaternary circle size="small" class="add-tab" @click="handleAdd">
@@ -81,6 +127,44 @@ const handleAdd = () => {
   padding: 0.45rem 0.9rem;
   font-size: 0.85rem;
   background: transparent;
+}
+
+.tab-content {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tab-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--khz-icon-soft);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.tab-item.active .tab-edit {
+  color: var(--khz-icon);
+}
+
+.tab-edit:hover {
+  color: var(--khz-text);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-editing {
+  width: 150px;
+}
+
+.tab-input :deep(.n-input__input-el) {
+  font-size: 0.8rem;
+  padding: 0.1rem 0.3rem;
 }
 
 .tab-item.active {

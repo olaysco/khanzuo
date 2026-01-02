@@ -48,6 +48,13 @@ export const useSessionStore = defineStore('session', () => {
     return session
   }
 
+  const renameTab = (tabId, title) => {
+    const trimmed = title?.trim()
+    if (!trimmed) return
+    const session = tabs.value.find((tab) => tab.id === tabId)
+    if (session) session.title = trimmed
+  }
+
   const updateTargetUrl = (value) => {
     if (!activeSession.value) return
     activeSession.value.targetUrl = value
@@ -131,6 +138,7 @@ export const useSessionStore = defineStore('session', () => {
     activePromptValue,
     setActiveTab,
     addTab,
+    renameTab,
     updateTargetUrl,
     startSession,
     submitPromptLog,

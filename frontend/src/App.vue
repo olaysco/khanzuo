@@ -98,6 +98,10 @@ const handleAddTab = () => {
   sessionStore.addTab()
 }
 
+const handleTabRename = ({ id, title }) => {
+  sessionStore.renameTab(id, title)
+}
+
 const updateServerTime = () => {
   const now = new Date()
   serverTime.value = `${now.toUTCString().slice(17, 25)} UTC`
@@ -170,6 +174,7 @@ onBeforeUnmount(() => {
         :active="activeTabId"
         @select="handleTabSelect"
         @add="handleAddTab"
+        @rename="handleTabRename"
       />
       <app-header
         :url="activeSession?.targetUrl || DEFAULT_TARGET_URL"
