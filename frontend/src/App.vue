@@ -102,6 +102,16 @@ const handleTabRename = ({ id, title }) => {
   sessionStore.renameTab(id, title)
 }
 
+const handleStopSession = () => {
+  sessionStore.stopSession([
+    {
+      title: t('ui.events.sessionStopped'),
+      detail: t('ui.events.stopDescription'),
+      status: 'error',
+    },
+  ])
+}
+
 const updateServerTime = () => {
   const now = new Date()
   serverTime.value = `${now.toUTCString().slice(17, 25)} UTC`
@@ -187,6 +197,7 @@ onBeforeUnmount(() => {
         @update:theme="updateTheme"
         @update:language="updateLanguage"
         @start="handleStartSession"
+        @stop="handleStopSession"
       />
       <div class="app-body">
         <user-view-panel :stream-ready="true" :has-input="!!activePromptValue" />

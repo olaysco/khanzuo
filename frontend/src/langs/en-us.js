@@ -14,6 +14,7 @@ export default {
     nav: {
       urlPlaceholder: 'https://app.example.com/Login',
       start: 'Start Session',
+      stop: 'Stop Session',
       statusIdle: 'Idle',
       statusRunning: 'Running',
       themeLabel: 'Theme',
@@ -56,6 +57,8 @@ export default {
       sessionRequested: 'Session requested',
       sessionReady: 'Browser ready',
       awaitingInput: 'Waiting for detailed steps from user.',
+      sessionStopped: 'Session stopped',
+      stopDescription: 'Agent halted by user command.',
     },
     settings: {
       title: 'Settings',

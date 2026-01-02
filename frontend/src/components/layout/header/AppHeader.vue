@@ -2,7 +2,13 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NButton, NInput, NDropdown, NText, NIcon } from 'naive-ui'
-import { LinkOutline, SunnyOutline, GlobeOutline, PlayOutline } from '@vicons/ionicons5'
+import {
+  LinkOutline,
+  SunnyOutline,
+  GlobeOutline,
+  PlayOutline,
+  StopCircleOutline,
+} from '@vicons/ionicons5'
 
 const props = defineProps({
   url: {
@@ -31,12 +37,19 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update:url', 'start', 'update:theme', 'update:language'])
+const emit = defineEmits(['update:url', 'start', 'stop', 'update:theme', 'update:language'])
 const { t } = useI18n()
 
 const statusLabel = computed(() =>
   props.status === 'idle' ? t('ui.nav.statusIdle') : t('ui.nav.statusRunning'),
 )
+
+const isRunning = computed(() => props.status !== 'idle')
+const primaryButtonLabel = computed(() =>
+  isRunning.value ? t('ui.nav.stop') : t('ui.nav.start'),
+)
+const primaryButtonType = computed(() => (isRunning.value ? 'error' : 'primary'))
+const primaryButtonIcon = computed(() => (isRunning.value ? StopCircleOutline : PlayOutline))
 
 const themeDropdown = computed(() =>
   props.themeOptions.map((option) => ({ label: option.label, key: option.value })),
@@ -58,8 +71,8 @@ const handleUrlUpdate = (value) => {
   emit('update:url', value)
 }
 
-const handleStart = () => {
-  emit('start')
+const handlePrimaryAction = () => {
+  emit(isRunning.value ? 'stop' : 'start')
 }
 </script>
 
@@ -111,13 +124,19 @@ const handleStart = () => {
           <span class="status-dot" :class="props.status" />
           <n-text depth="3">{{ statusLabel }}</n-text>
         </div>
-        <n-button type="primary" size="large" strong class="start-button" @click="handleStart">
+        <n-button
+          :type="primaryButtonType"
+          size="large"
+          strong
+          class="start-button"
+          @click="handlePrimaryAction"
+        >
           <template #icon>
             <n-icon>
-              <PlayOutline />
+              <component :is="primaryButtonIcon" />
             </n-icon>
           </template>
-          {{ t('ui.nav.start') }}
+          {{ primaryButtonLabel }}
         </n-button>
       </div>
     </div>

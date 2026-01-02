@@ -72,18 +72,34 @@ export const useSessionStore = defineStore('session', () => {
     session.lastSync = new Date().toLocaleTimeString()
   }
 
+  const clearSessionTimer = (session) => {
+    if (!session) return
+    const timer = sessionStatusTimers.get(session.id)
+    if (timer) {
+      clearTimeout(timer)
+      sessionStatusTimers.delete(session.id)
+    }
+  }
+
   const startSession = (logPayloads = []) => {
     const session = activeSession.value
     if (!session) return
     session.status = 'running'
     logPayloads.forEach((payload) => addLogToSession(session, payload))
-    const existingTimer = sessionStatusTimers.get(session.id)
-    if (existingTimer) clearTimeout(existingTimer)
+    clearSessionTimer(session)
     const timer = setTimeout(() => {
       session.status = 'idle'
       sessionStatusTimers.delete(session.id)
     }, 4000)
     sessionStatusTimers.set(session.id, timer)
+  }
+
+  const stopSession = (logPayloads = []) => {
+    const session = activeSession.value
+    if (!session) return
+    session.status = 'idle'
+    clearSessionTimer(session)
+    logPayloads.forEach((payload) => addLogToSession(session, payload))
   }
 
   const submitPromptLog = () => {
@@ -118,11 +134,7 @@ export const useSessionStore = defineStore('session', () => {
       session.lastSync = '--:--'
       session.isSyncing = false
       session.status = 'idle'
-      const timer = sessionStatusTimers.get(session.id)
-      if (timer) {
-        clearTimeout(timer)
-        sessionStatusTimers.delete(session.id)
-      }
+      clearSessionTimer(session)
     })
   }
 
@@ -141,6 +153,7 @@ export const useSessionStore = defineStore('session', () => {
     renameTab,
     updateTargetUrl,
     startSession,
+    stopSession,
     submitPromptLog,
     refreshActiveLogs,
     clearSessionData,

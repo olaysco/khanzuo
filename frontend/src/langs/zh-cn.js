@@ -14,6 +14,7 @@ export default {
     nav: {
       urlPlaceholder: 'https://app.example.com/Login',
       start: '开始会话',
+      stop: '停止会话',
       statusIdle: '空闲',
       statusRunning: '执行中',
       themeLabel: '主题',
@@ -56,6 +57,8 @@ export default {
       sessionRequested: '已收到会话请求',
       sessionReady: '浏览器已就绪',
       awaitingInput: '等待用户提供更详细步骤。',
+      sessionStopped: '会话已停止',
+      stopDescription: '用户手动停止了代理。',
     },
     settings: {
       title: '设置',
