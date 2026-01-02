@@ -193,7 +193,9 @@ const handleSave = () => {
         <section class="settings-section">
           <p class="section-heading">{{ t('ui.settings.appearance') }}</p>
           <div class="field">
-            <span class="field-label">{{ t('ui.settings.themePreference') }}</span>
+            <div class="field-label">
+              <span>{{ t('ui.settings.themePreference') }}</span>
+            </div>
             <n-radio-group v-model:value="formState.theme" class="theme-group">
               <n-radio v-for="option in themeControls" :key="option.value" :value="option.value">
                 <div class="theme-chip" :class="{ active: formState.theme === option.value }">
@@ -327,6 +329,10 @@ const handleSave = () => {
   padding: 0 0 1.25rem;
 }
 
+.settings-section:first-of-type {
+  margin-top: 0.5rem;
+}
+
 .settings-section:last-of-type {
   border-bottom: none;
   padding-bottom: 0;
@@ -392,6 +398,13 @@ const handleSave = () => {
   width: 100%;
 }
 
+.theme-group :deep(.n-radio .n-radio__dot-wrapper),
+.agent-grid :deep(.n-radio .n-radio__dot-wrapper) {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .theme-group :deep(.n-radio__dot) {
   display: none;
 }
@@ -427,6 +440,7 @@ const handleSave = () => {
   align-items: center;
   gap: 0.4rem;
   color: var(--settings-strong);
+  justify-content: center;
 }
 
 .theme-chip.active .chip-title {
@@ -588,7 +602,7 @@ const handleSave = () => {
 }
 
 .dialog-header:nth-child(1) {
-  margin: 0.5rem 0px;
+  padding: 0.5rem 0px;
   border-bottom: 1px solid var(--settings-border);
 }
 
