@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"khanzuo/internal/app"
 	"runtime"
 
 	"github.com/wailsapp/wails/v2"
@@ -30,7 +31,7 @@ func main() {
 	}
 
 	// Create an instance of the app structure
-	app := NewApp()
+	appInstance := app.NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -45,9 +46,9 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.startup,
+		OnStartup:        appInstance.Startup,
 		Bind: []interface{}{
-			app,
+			appInstance,
 		},
 	})
 
