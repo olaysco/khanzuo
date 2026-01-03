@@ -119,18 +119,7 @@ const updateServerTime = () => {
 
 const handleStartSession = () => {
   const detail = activeSession.value?.targetUrl || t('ui.view.waitingDescription')
-  sessionStore.startSession([
-    {
-      title: t('ui.events.sessionRequested'),
-      detail,
-      status: 'success',
-    },
-    {
-      title: t('ui.events.sessionReady'),
-      detail: t('ui.events.awaitingInput'),
-      status: 'warning',
-    },
-  ])
+  sessionStore.startSession()
 }
 
 const handlePromptSend = () => {

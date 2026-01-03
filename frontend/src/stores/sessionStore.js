@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { StartSession } from '@/../wailsjs/go/app/App.js'
 
 export const DEFAULT_TARGET_URL = 'https://app.example.com/Login'
 
@@ -17,12 +18,9 @@ const createSession = (id, title) => ({
 
 export const useSessionStore = defineStore('session', () => {
   const tabs = ref([
-    createSession('login', 'Login Bug'),
-    createSession('new-user', 'New User Flow'),
     createSession('session-3', 'Session 3'),
   ])
   const activeTabId = ref('session-3')
-  const sessionStatusTimers = new Map()
 
   const activeSession = computed(() =>
     tabs.value.find((tab) => tab.id === activeTabId.value) ?? tabs.value[0],
@@ -72,33 +70,27 @@ export const useSessionStore = defineStore('session', () => {
     session.lastSync = new Date().toLocaleTimeString()
   }
 
-  const clearSessionTimer = (session) => {
-    if (!session) return
-    const timer = sessionStatusTimers.get(session.id)
-    if (timer) {
-      clearTimeout(timer)
-      sessionStatusTimers.delete(session.id)
-    }
-  }
-
-  const startSession = (logPayloads = []) => {
+  const startSession = () => {
     const session = activeSession.value
     if (!session) return
     session.status = 'running'
-    logPayloads.forEach((payload) => addLogToSession(session, payload))
-    clearSessionTimer(session)
-    const timer = setTimeout(() => {
+    const targetUrl = session.targetUrl?.trim()
+    if (!targetUrl) {
+      addLogToSession(session, {
+        status: 'error',
+        title: 'Missing target URL',
+        detail: 'Please provide a URL before starting a session.',
+      })
       session.status = 'idle'
-      sessionStatusTimers.delete(session.id)
-    }, 4000)
-    sessionStatusTimers.set(session.id, timer)
+      return
+    }
+    StartSession(targetUrl)
   }
 
   const stopSession = (logPayloads = []) => {
     const session = activeSession.value
     if (!session) return
     session.status = 'idle'
-    clearSessionTimer(session)
     logPayloads.forEach((payload) => addLogToSession(session, payload))
   }
 
@@ -134,13 +126,7 @@ export const useSessionStore = defineStore('session', () => {
       session.lastSync = '--:--'
       session.isSyncing = false
       session.status = 'idle'
-      clearSessionTimer(session)
     })
-  }
-
-  const resetAllTimers = () => {
-    sessionStatusTimers.forEach((timer) => clearTimeout(timer))
-    sessionStatusTimers.clear()
   }
 
   return {
@@ -157,7 +143,6 @@ export const useSessionStore = defineStore('session', () => {
     submitPromptLog,
     refreshActiveLogs,
     clearSessionData,
-    resetAllTimers,
     DEFAULT_TARGET_URL,
   }
 })
