@@ -16,6 +16,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   --body-background: #03070f;
   --body-text-color: #f5f8ff;
   background-color: var(--body-background);
@@ -30,4 +32,6 @@ body[data-theme='light'] {
 
 #app {
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }

@@ -17,6 +17,7 @@ import AppFooter from '@/components/layout/footer/AppFooter.vue'
 import SettingsDialog from '@/pages/SettingsDialog.vue'
 import { languageOptions } from '@/langs/index.js'
 import { useSessionStore, DEFAULT_TARGET_URL } from '@/stores/sessionStore.js'
+import { EventsOn } from '@/../wailsjs/runtime/runtime.js'
 
 const { t, locale } = useI18n()
 
@@ -29,6 +30,7 @@ const { tabs, activeTabId, activeSession, activePromptValue } = storeToRefs(sess
 const showSettings = ref(false)
 const selectedAgent = ref('codex')
 let clockTimer = null
+let frameUpdateOff = null
 
 const resolvedTheme = computed(() => {
   if (themePreference.value === 'auto') {
@@ -58,6 +60,9 @@ const naiveUIDateLocale = computed(() => {
   const match = languageOptions.find((option) => option.value === selectedLanguage.value)
   return match?.naiveDateLocale
 })
+
+const activeFrameSrc = computed(() => activeSession.value?.frameSrc ?? '')
+const isStreamReady = computed(() => Boolean(activeFrameSrc.value))
 
 const agentStatusLabel = computed(() => {
   const status = activeSession.value?.status ?? 'idle'
@@ -151,11 +156,16 @@ const handleSettingsClearData = () => {
 onMounted(() => {
   updateServerTime()
   clockTimer = setInterval(updateServerTime, 1000)
+  if (typeof window !== 'undefined' && window.runtime?.EventsOnMultiple) {
+    frameUpdateOff = EventsOn('frame:update', (frameEvent) => {
+      sessionStore.setFrameSource(frameEvent)
+    })
+  }
 })
 
 onBeforeUnmount(() => {
-  sessionStore.resetAllTimers()
   if (clockTimer) clearInterval(clockTimer)
+  if (typeof frameUpdateOff === 'function') frameUpdateOff()
 })
 </script>
 
@@ -189,7 +199,11 @@ onBeforeUnmount(() => {
         @stop="handleStopSession"
       />
       <div class="app-body">
-        <user-view-panel :stream-ready="true" :has-input="!!activePromptValue" />
+        <user-view-panel
+          :stream-ready="isStreamReady"
+          :frame-src="activeFrameSrc"
+          :has-input="!!activePromptValue"
+        />
         <aside class="sidebar">
           <agent-logs-panel
             :logs="activeSession?.logs ?? []"
@@ -248,6 +262,8 @@ onBeforeUnmount(() => {
   --khz-input-border: rgba(255, 255, 255, 0.55);
 
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--khz-surface);
@@ -275,10 +291,12 @@ onBeforeUnmount(() => {
 
 .app-body {
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 1.25rem;
   padding: 1.25rem 1.5rem 1.5rem;
+  overflow: hidden;
 }
 
 .sidebar {

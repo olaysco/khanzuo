@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { CreateSessionID, StartSession } from '@/../wailsjs/go/app/App.js'
 
-export const DEFAULT_TARGET_URL = 'https://app.example.com/Login'
+export const DEFAULT_TARGET_URL = 'https://openprovider.eu'
 
 const createSession = (id, title) => ({
   id,
@@ -152,10 +152,20 @@ export const useSessionStore = defineStore('session', () => {
     })
   }
 
-  const setFrameSource = (src) => {
-    const session = activeSession.value
+  const setFrameSource = (payload) => {
+    // Handle legacy string payloads so we don't break dev sessions
+    if (typeof payload === 'string') {
+      const session = activeSession.value
+      if (!session) return
+      session.frameSrc = payload
+      return
+    }
+
+    const { sessionId, frameDataUri } = payload ?? {}
+    if (!sessionId) return
+    const session = tabs.value.find((tab) => tab.id === sessionId)
     if (!session) return
-    session.frameSrc = typeof src === 'string' ? src : ''
+    session.frameSrc = typeof frameDataUri === 'string' ? frameDataUri : ''
   }
 
   return {
