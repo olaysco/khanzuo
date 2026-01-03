@@ -13,6 +13,12 @@ type Manager struct {
 	sessions map[string]*Session
 }
 
+type Emitters struct {
+	Status func(status string)
+	Log    func(level, msg string)
+	Frame  func(dataURI string)
+}
+
 func NewManager() *Manager {
 	return &Manager{
 		sessions: make(map[string]*Session),
@@ -20,15 +26,15 @@ func NewManager() *Manager {
 }
 
 // Start creates a new session, and starts it.
-func (m *Manager) Start(ctx context.Context, url string, emit func(string, any)) (*Session, error) {
-	s := NewSession(url, emit)
+func (m *Manager) Start(ctx context.Context, sessionID string, url string, emit Emitters) (*Session, error) {
+	s := NewSession(sessionID, url, emit)
 
 	if err := s.Start(ctx); err != nil {
 		return nil, err
 	}
 
 	m.mu.Lock()
-	m.sessions[s.ID] = s
+	m.sessions[sessionID] = s
 	m.mu.Unlock()
 
 	return s, nil
@@ -68,4 +74,12 @@ func (m *Manager) Stop(id string) error {
 		return ErrSessionNotFound
 	}
 	return s.Stop()
+}
+
+// Exists returns true if session exists (very rare)
+func (m *Manager) Exists(id string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	_, ok := m.sessions[id]
+	return ok
 }

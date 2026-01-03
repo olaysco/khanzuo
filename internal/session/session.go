@@ -6,20 +6,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"khanzuo/internal/browser"
-	"khanzuo/internal/util"
 )
 
 type Session struct {
 	ID   string
 	URL  string
-	emit func(string, any)
+	emit Emitters
 
 	b *browser.Controller
 }
 
-func NewSession(url string, emit func(string, any)) *Session {
+func NewSession(sessionID string, url string, emit Emitters) *Session {
 	return &Session{
-		ID:   util.NewID(),
+		ID:   sessionID,
 		URL:  url,
 		emit: emit,
 		b:    browser.NewController(),
@@ -27,31 +26,31 @@ func NewSession(url string, emit func(string, any)) *Session {
 }
 
 func (s *Session) Start(ctx context.Context) error {
-	s.emit("agent:log", "Launching browser (Rod)")
+	s.emit.Log("info", "Launching browser (Rod)")
 	if err := s.b.Start(ctx); err != nil {
 		return fmt.Errorf("browser start: %w", err)
 	}
 
-	s.emit("agent:log", fmt.Sprintf("Navigating to %s", s.URL))
+	s.emit.Log("info", fmt.Sprintf("Navigating to %s", s.URL))
 	if err := s.b.Goto(s.URL); err != nil {
 		_ = s.b.Stop()
 		return fmt.Errorf("goto: %w", err)
 	}
 
 	// Capture initial frame
-	s.emit("agent:log", "Capturing initial frame")
+	s.emit.Log("info", "Capturing initial frame")
 	frame, err := s.b.CaptureFrame()
 	if err != nil {
 		_ = s.b.Stop()
 		return fmt.Errorf("capture frame: %w", err)
 	}
 
-	s.emit("frame:update", frame)
+	s.emit.Frame(frame)
 	return nil
 }
 
 func (s *Session) Stop() error {
-	s.emit("agent:log", "Stopping session")
+	s.emit.Log("info", "Stopping session")
 	return s.b.Stop()
 }
 

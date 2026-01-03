@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { StartSession } from '@/../wailsjs/go/app/App.js'
+import { CreateSessionID, StartSession } from '@/../wailsjs/go/app/App.js'
 
 export const DEFAULT_TARGET_URL = 'https://app.example.com/Login'
 
@@ -10,6 +10,7 @@ const createSession = (id, title) => ({
   targetUrl: DEFAULT_TARGET_URL,
   status: 'idle',
   isStarting: false,
+  frameSrc: '',
   captureStatus: 'Ready',
   promptValue: '',
   logs: [],
@@ -71,10 +72,12 @@ export const useSessionStore = defineStore('session', () => {
     session.lastSync = new Date().toLocaleTimeString()
   }
 
-  const startSession = () => {
+  const startSession = async () => {
     const session = activeSession.value
     if (!session || session.isStarting || session.status === 'running') return
     session.isStarting = true
+    session.frameSrc = ''
+    session.id = await CreateSessionID();
     const targetUrl = session.targetUrl?.trim()
     if (!targetUrl) {
       addLogToSession(session, {
@@ -86,9 +89,8 @@ export const useSessionStore = defineStore('session', () => {
       session.isStarting = false
       return
     }
-    StartSession(targetUrl)
+    StartSession(session.id, targetUrl)
       .then((result) => {
-        session.id = result
         session.status = 'running'
       })
       .catch((err) => {
@@ -109,6 +111,7 @@ export const useSessionStore = defineStore('session', () => {
     if (!session) return
     session.status = 'idle'
     session.isStarting = false
+    session.frameSrc = ''
     logPayloads.forEach((payload) => addLogToSession(session, payload))
   }
 
@@ -145,7 +148,14 @@ export const useSessionStore = defineStore('session', () => {
       session.isSyncing = false
       session.status = 'idle'
       session.isStarting = false
+      session.frameSrc = ''
     })
+  }
+
+  const setFrameSource = (src) => {
+    const session = activeSession.value
+    if (!session) return
+    session.frameSrc = typeof src === 'string' ? src : ''
   }
 
   return {
@@ -162,6 +172,7 @@ export const useSessionStore = defineStore('session', () => {
     submitPromptLog,
     refreshActiveLogs,
     clearSessionData,
+    setFrameSource,
     DEFAULT_TARGET_URL,
   }
 })

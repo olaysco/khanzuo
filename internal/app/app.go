@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"khanzuo/internal/session"
+	"khanzuo/internal/util"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -28,7 +29,7 @@ func (a *App) Startup(ctx context.Context) {
 }
 
 // Start Session begins a new investigation session instance and restusn the session ID
-func (a *App) StartSession(url string) (string, error) {
+func (a *App) StartSession(sessionID string, url string) (string, error) {
 	if a.ctx == nil {
 		return "", fmt.Errorf("app not initialized: Startup() not called yet")
 	}
@@ -41,7 +42,7 @@ func (a *App) StartSession(url string) (string, error) {
 	runtime.EventsEmit(a.ctx, "agent:log", fmt.Sprintf("Starting session for %s", url))
 
 	// Create / replace the current session
-	sess, err := a.sm.Start(a.ctx, url, a.emit)
+	sess, err := a.sm.Start(a.ctx, sessionID, url, a.emitters(sessionID))
 	if err != nil {
 		runtime.EventsEmit(a.ctx, "session:status", "Error")
 		runtime.EventsEmit(a.ctx, "agent:log", fmt.Sprintf("Failed to start session: %v", err))
@@ -67,6 +68,16 @@ func (a *App) StopSession() {
 // Export bundle returns debugging session asa formatted JSON
 func (a *App) ExportBundle() {
 	panic("not yet implemented")
+}
+
+// CreateSessionID generates a new session ID for the frontend to use.
+func (a *App) CreateSessionID() string {
+	for {
+		id := util.NewID()
+		if a.sm == nil || !a.sm.Exists(id) {
+			return id
+		}
+	}
 }
 
 // emit is an adapter passed down to session layer to publish UI events.

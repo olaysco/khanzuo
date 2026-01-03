@@ -6,7 +6,7 @@ import (
 )
 
 func NewID() string {
-	var b [8]byte
+	var b [16]byte
 	_, _ = rand.Read(b[:])
 	return hex.EncodeToString(b[:])
 }
