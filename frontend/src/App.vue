@@ -118,7 +118,6 @@ const updateServerTime = () => {
 }
 
 const handleStartSession = () => {
-  const detail = activeSession.value?.targetUrl || t('ui.view.waitingDescription')
   sessionStore.startSession()
 }
 
@@ -178,6 +177,7 @@ onBeforeUnmount(() => {
       <app-header
         :url="activeSession?.targetUrl || DEFAULT_TARGET_URL"
         :status="activeSession?.status ?? 'idle'"
+        :is-starting="activeSession?.isStarting ?? false"
         :theme="themePreference"
         :language="selectedLanguage"
         :theme-options="themeOptions"

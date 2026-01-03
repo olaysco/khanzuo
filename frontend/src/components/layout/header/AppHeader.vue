@@ -35,6 +35,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  isStarting: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['update:url', 'start', 'stop', 'update:theme', 'update:language'])
@@ -72,6 +76,7 @@ const handleUrlUpdate = (value) => {
 }
 
 const handlePrimaryAction = () => {
+  if (props.isStarting) return
   emit(isRunning.value ? 'stop' : 'start')
 }
 </script>
@@ -129,6 +134,8 @@ const handlePrimaryAction = () => {
           size="large"
           strong
           class="start-button"
+          :loading="props.isStarting"
+          :disabled="props.isStarting"
           @click="handlePrimaryAction"
         >
           <template #icon>

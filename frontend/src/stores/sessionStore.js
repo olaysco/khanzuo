@@ -9,6 +9,7 @@ const createSession = (id, title) => ({
   title,
   targetUrl: DEFAULT_TARGET_URL,
   status: 'idle',
+  isStarting: false,
   captureStatus: 'Ready',
   promptValue: '',
   logs: [],
@@ -72,8 +73,8 @@ export const useSessionStore = defineStore('session', () => {
 
   const startSession = () => {
     const session = activeSession.value
-    if (!session) return
-    session.status = 'running'
+    if (!session || session.isStarting || session.status === 'running') return
+    session.isStarting = true
     const targetUrl = session.targetUrl?.trim()
     if (!targetUrl) {
       addLogToSession(session, {
@@ -82,15 +83,32 @@ export const useSessionStore = defineStore('session', () => {
         detail: 'Please provide a URL before starting a session.',
       })
       session.status = 'idle'
+      session.isStarting = false
       return
     }
     StartSession(targetUrl)
+      .then((result) => {
+        session.id = result
+        session.status = 'running'
+      })
+      .catch((err) => {
+        addLogToSession(session, {
+          status: 'error',
+          title: 'Failed to start session',
+          detail: err?.message ?? String(err),
+        })
+        session.status = 'idle'
+      })
+      .finally(() => {
+        session.isStarting = false
+      })
   }
 
   const stopSession = (logPayloads = []) => {
     const session = activeSession.value
     if (!session) return
     session.status = 'idle'
+    session.isStarting = false
     logPayloads.forEach((payload) => addLogToSession(session, payload))
   }
 
@@ -126,6 +144,7 @@ export const useSessionStore = defineStore('session', () => {
       session.lastSync = '--:--'
       session.isSyncing = false
       session.status = 'idle'
+      session.isStarting = false
     })
   }
 
