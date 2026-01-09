@@ -106,6 +106,10 @@ const handleTabRename = ({ id, title }) => {
   sessionStore.renameTab(id, title)
 }
 
+const handleTabClose = (tabId) => {
+  sessionStore.removeTab(tabId)
+}
+
 const handleStopSession = () => {
   sessionStore.stopSession([
     {
@@ -127,6 +131,10 @@ const handleStartSession = () => {
 
 const handlePromptSend = () => {
   sessionStore.submitPromptLog()
+}
+
+const handleManualToggle = () => {
+  sessionStore.toggleManualControl()
 }
 
 const refreshLogs = () => {
@@ -177,6 +185,7 @@ onBeforeUnmount(() => {
         @select="handleTabSelect"
         @add="handleAddTab"
         @rename="handleTabRename"
+        @close="handleTabClose"
       />
       <app-header
         :url="activeSession?.targetUrl || DEFAULT_TARGET_URL"
@@ -197,6 +206,9 @@ onBeforeUnmount(() => {
           :stream-ready="isStreamReady"
           :frame-src="activeFrameSrc"
           :has-input="!!activePromptValue"
+          :target-url="activeSession?.targetUrl"
+          :manual-control="activeSession?.manualControl ?? false"
+          @toggle-control="handleManualToggle"
         />
         <aside class="sidebar">
           <agent-logs-panel
@@ -282,6 +294,8 @@ onBeforeUnmount(() => {
   --khz-input-bg: #eef2ff;
   --khz-input-border: rgba(99, 102, 241, 0.35);
 }
+
+
 
 .app-body {
   flex: 1;

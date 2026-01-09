@@ -15,13 +15,21 @@ const createSession = (id, title) => ({
   logs: [],
   isSyncing: false,
   lastSync: '--:--',
+  manualControl: false,
 })
+
+const getBridge = () => (typeof window !== 'undefined' ? window.khanzuo ?? null : null)
+const createSessionId = () => (crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}-${Math.random()}`)
 
 export const useSessionStore = defineStore('session', () => {
   const tabs = ref([
-    createSession('session-3', 'Session 3'),
+    createSession(createSessionId(), 'Session 1'),
   ])
-  const activeTabId = ref('session-3')
+  const activeTabId = ref(tabs.value[0].id)
+  const bridge = getBridge()
+  let frameListenerOff = null
+  let statusListenerOff = null
+  let agentLogListenerOff = null
 
   const activeSession = computed(() =>
     tabs.value.find((tab) => tab.id === activeTabId.value) ?? tabs.value[0],
@@ -41,10 +49,41 @@ export const useSessionStore = defineStore('session', () => {
 
   const addTab = (title) => {
     const index = tabs.value.length + 1
-    const session = createSession(`session-${index}`, title ?? `Session ${index}`)
+    const session = createSession(createSessionId(), title ?? `Session ${index}`)
     tabs.value.push(session)
     activeTabId.value = session.id
     return session
+  }
+
+  const removeTab = async (tabId) => {
+    if (!tabId || tabs.value.length === 0) return
+    const index = tabs.value.findIndex((tab) => tab.id === tabId)
+    if (index === -1) return
+    const session = tabs.value[index]
+
+    if (bridge && typeof bridge.stopSession === 'function' && session.status === 'running') {
+      try {
+        await bridge.stopSession({ sessionId: session.id })
+      } catch (error) {
+        addLogToSession(session, {
+          status: 'warning',
+          title: 'Session stop failed',
+          detail: error?.message ?? String(error ?? 'Unknown error'),
+        })
+      }
+    }
+
+    if (tabs.value.length === 1) {
+      tabs.value[0] = createSession(createSessionId(), 'Session 1')
+      activeTabId.value = tabs.value[0].id
+      return
+    }
+
+    tabs.value.splice(index, 1)
+    if (activeTabId.value === tabId) {
+      const fallback = tabs.value[index] ?? tabs.value[index - 1] ?? tabs.value[0]
+      activeTabId.value = fallback?.id ?? ''
+    }
   }
 
   const renameTab = (tabId, title) => {
@@ -88,15 +127,60 @@ export const useSessionStore = defineStore('session', () => {
       session.isStarting = false
       return
     }
-    //start session
+    if (!bridge || typeof bridge.startSession !== 'function') {
+      addLogToSession(session, {
+        status: 'error',
+        title: 'Bridge unavailable',
+        detail: 'Unable to reach the desktop agent. Is Electron running?',
+      })
+      session.status = 'idle'
+      session.isStarting = false
+      return
+    }
+
+    try {
+      await bridge.startSession({ sessionId: session.id, targetUrl })
+      session.status = 'running'
+      session.captureStatus = 'Capturing'
+      addLogToSession(session, {
+        status: 'success',
+        title: 'Session started',
+        detail: `Navigating to ${targetUrl}`,
+      })
+    } catch (error) {
+      addLogToSession(session, {
+        status: 'error',
+        title: 'Failed to start session',
+        detail: error?.message ?? String(error ?? 'Unknown error'),
+      })
+      session.status = 'idle'
+    } finally {
+      session.isStarting = false
+    }
   }
 
-  const stopSession = (logPayloads = []) => {
+  const stopSession = async (logPayloads = []) => {
     const session = activeSession.value
     if (!session) return
+    const previousStatus = session.status
     session.status = 'idle'
     session.isStarting = false
     session.frameSrc = ''
+    session.captureStatus = 'Ready'
+    session.manualControl = false
+
+    if (bridge && typeof bridge.stopSession === 'function' && previousStatus === 'running') {
+      try {
+        await bridge.stopSession({ sessionId: session.id })
+      } catch (error) {
+        addLogToSession(session, {
+          status: 'warning',
+          title: 'Stop session failed',
+          detail: error?.message ?? String(error ?? 'Unknown error'),
+        })
+      }
+    }
+
     logPayloads.forEach((payload) => addLogToSession(session, payload))
   }
 
@@ -134,6 +218,7 @@ export const useSessionStore = defineStore('session', () => {
       session.status = 'idle'
       session.isStarting = false
       session.frameSrc = ''
+      session.manualControl = false
     })
   }
 
@@ -151,7 +236,49 @@ export const useSessionStore = defineStore('session', () => {
     const session = tabs.value.find((tab) => tab.id === sessionId)
     if (!session) return
     session.frameSrc = typeof frameDataUri === 'string' ? frameDataUri : ''
+    if (session.frameSrc) {
+      session.captureStatus = 'Capturing'
+    }
   }
+
+  const toggleManualControl = async () => {
+    const session = activeSession.value
+    if (!session) return
+    session.manualControl = !session.manualControl
+  }
+
+  const handleStatusUpdate = (payload) => {
+    const { sessionId, status, captureStatus, log } = payload ?? {}
+    if (!sessionId) return
+    const session = tabs.value.find((tab) => tab.id === sessionId)
+    if (!session) return
+    if (status) session.status = status
+    if (captureStatus) session.captureStatus = captureStatus
+    if (log) addLogToSession(session, log)
+  }
+
+  const handleAgentLog = (payload) => {
+    const { sessionId, ...logPayload } = payload ?? {}
+    if (!sessionId) return
+    const session = tabs.value.find((tab) => tab.id === sessionId)
+    if (!session) return
+    addLogToSession(session, logPayload)
+  }
+
+  const registerBridgeListeners = () => {
+    if (!bridge) return
+    if (typeof bridge.onFrameUpdate === 'function' && !frameListenerOff) {
+      frameListenerOff = bridge.onFrameUpdate((payload) => setFrameSource(payload))
+    }
+    if (typeof bridge.onStatus === 'function' && !statusListenerOff) {
+      statusListenerOff = bridge.onStatus((payload) => handleStatusUpdate(payload))
+    }
+    if (typeof bridge.onAgentLog === 'function' && !agentLogListenerOff) {
+      agentLogListenerOff = bridge.onAgentLog((payload) => handleAgentLog(payload))
+    }
+  }
+
+  registerBridgeListeners()
 
   return {
     tabs,
@@ -161,6 +288,7 @@ export const useSessionStore = defineStore('session', () => {
     setActiveTab,
     addTab,
     renameTab,
+    removeTab,
     updateTargetUrl,
     startSession,
     stopSession,
@@ -168,6 +296,7 @@ export const useSessionStore = defineStore('session', () => {
     refreshActiveLogs,
     clearSessionData,
     setFrameSource,
+    toggleManualControl,
     DEFAULT_TARGET_URL,
   }
 })

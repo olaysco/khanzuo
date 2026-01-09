@@ -42,4 +42,5 @@ contextBridge.exposeInMainWorld('khanzuo', {
   attachSessionView: (elementId, sessionId) => attachSessionView(elementId, sessionId),
   onStatus: buildEventBridge('session:status'),
   onAgentLog: buildEventBridge('agent:log'),
+  onFrameUpdate: buildEventBridge('frame:update'),
 });
