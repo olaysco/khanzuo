@@ -17,7 +17,6 @@ import AppFooter from '@/components/layout/footer/AppFooter.vue'
 import SettingsDialog from '@/pages/SettingsDialog.vue'
 import { languageOptions } from '@/langs/index.js'
 import { useSessionStore, DEFAULT_TARGET_URL } from '@/stores/sessionStore.js'
-import { EventsOn } from '@/../wailsjs/runtime/runtime.js'
 
 const { t, locale } = useI18n()
 
@@ -156,11 +155,6 @@ const handleSettingsClearData = () => {
 onMounted(() => {
   updateServerTime()
   clockTimer = setInterval(updateServerTime, 1000)
-  if (typeof window !== 'undefined' && window.runtime?.EventsOnMultiple) {
-    frameUpdateOff = EventsOn('frame:update', (frameEvent) => {
-      sessionStore.setFrameSource(frameEvent)
-    })
-  }
 })
 
 onBeforeUnmount(() => {

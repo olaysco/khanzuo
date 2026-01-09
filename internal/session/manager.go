@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"khanzuo/internal/browser"
 	"sync"
 )
 
@@ -16,7 +17,6 @@ type Manager struct {
 type Emitters struct {
 	Status func(status string)
 	Log    func(level, msg string)
-	Frame  func(dataURI string)
 }
 
 func NewManager() *Manager {
@@ -26,8 +26,8 @@ func NewManager() *Manager {
 }
 
 // Start creates a new session, and starts it.
-func (m *Manager) Start(ctx context.Context, sessionID string, url string, emit Emitters) (*Session, error) {
-	s := NewSession(sessionID, url, emit)
+func (m *Manager) Start(ctx context.Context, sessionID string, url string, emit Emitters, ctrl *browser.Controller) (*Session, error) {
+	s := NewSession(sessionID, url, emit, ctrl)
 
 	if err := s.Start(ctx); err != nil {
 		return nil, err

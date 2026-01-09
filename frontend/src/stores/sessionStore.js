@@ -1,6 +1,5 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { CreateSessionID, StartSession } from '@/../wailsjs/go/app/App.js'
 
 export const DEFAULT_TARGET_URL = 'https://openprovider.eu'
 
@@ -77,7 +76,7 @@ export const useSessionStore = defineStore('session', () => {
     if (!session || session.isStarting || session.status === 'running') return
     session.isStarting = true
     session.frameSrc = ''
-    session.id = await CreateSessionID();
+    // session.id = await CreateSessionID();
     const targetUrl = session.targetUrl?.trim()
     if (!targetUrl) {
       addLogToSession(session, {
@@ -89,21 +88,7 @@ export const useSessionStore = defineStore('session', () => {
       session.isStarting = false
       return
     }
-    StartSession(session.id, targetUrl)
-      .then((result) => {
-        session.status = 'running'
-      })
-      .catch((err) => {
-        addLogToSession(session, {
-          status: 'error',
-          title: 'Failed to start session',
-          detail: err?.message ?? String(err),
-        })
-        session.status = 'idle'
-      })
-      .finally(() => {
-        session.isStarting = false
-      })
+    //start session
   }
 
   const stopSession = (logPayloads = []) => {

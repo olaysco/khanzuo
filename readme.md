@@ -6,14 +6,15 @@
 
 ## Live Development
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+1. Install frontend dependencies with `cd frontend && npm install` (run once)
+2. Install the Electron/Playwright shell dependencies with `npm install`
+3. Start the full stack with `npm run dev`. This launches the Vite dev server, the Electron shell, and the Go agent (spawned via `go run ./cmd/agent`).
+
+The Electron window renders the Vue UI, embeds the live session webview, and proxies IPC calls to the Go agent.
 
 ## Building
 
-To build a redistributable, production mode package, use `wails build`.
+Build the frontend bundle with `npm run build`. Then compile the Go agent (`go build -o khanzuo-agent ./cmd/agent`) and use your preferred Electron packager to wrap `electron/main.js` + `frontend/dist` + the agent binary.
 
 ## Why Khanzuo exists
 
