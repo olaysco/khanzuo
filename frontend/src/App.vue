@@ -31,6 +31,10 @@ const currentSessionStatus = computed(() => activeSession.value?.status ?? 'idle
 const isSessionActive = computed(() => currentSessionStatus.value !== 'idle')
 const formattedLogs = computed(() => activeSession.value?.logs ?? [])
 const isStopDisabled = computed(() => !isSessionActive.value)
+const contextFolders = computed(() => activeSession.value?.contextFolders ?? [])
+const routerState = computed(() => activeSession.value?.routerState ?? {})
+const routerPlan = computed(() => routerState.value?.plan ?? [])
+const routerIntentLabel = computed(() => routerState.value?.intent ?? 'idle')
 
 watch(selectedLanguage, (value) => {
   locale.value = value
@@ -67,7 +71,7 @@ const handleStopSession = () => {
 }
 
 const handlePromptSend = () => {
-  sessionStore.submitPromptLog()
+  sessionStore.processPrompt()
 }
 
 const handleManualToggle = (sessionId) => {
@@ -76,6 +80,14 @@ const handleManualToggle = (sessionId) => {
 
 const handleManualUrlChange = (sessionId, url) => {
   sessionStore.updateManualUrl(sessionId, url)
+}
+
+const handleAddContextFolders = () => {
+  sessionStore.selectContextFolders()
+}
+
+const handleRemoveContextFolder = (folderId) => {
+  sessionStore.removeContextFolder(folderId)
 }
 
 const handleTabSelect = (tabId) => sessionStore.setActiveTab(tabId)
@@ -169,6 +181,93 @@ onBeforeUnmount(() => {
         </div>
       </section>
       <aside class="w-[400px] flex-none border-l border-[#233348] bg-[#111822] flex flex-col">
+        <div class="border-b border-[#233348] p-4 space-y-3 bg-[#161e2a]">
+          <div class="flex items-center justify-between">
+            <h3 class="text-white text-sm font-bold flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[20px]">task</span>
+              Execution Plan
+            </h3>
+            <span class="text-[11px] uppercase tracking-wide px-2 py-0.5 rounded-full border border-[#233348] text-[#92a9c9]">
+              {{ routerIntentLabel }}
+            </span>
+          </div>
+          <p v-if="routerState?.summary" class="text-[11px] text-[#92a9c9]">
+            {{ routerState.summary }}
+          </p>
+          <div v-if="!routerPlan.length" class="text-[#92a9c9] text-sm">
+            No plan yet. Describe the task and Khanzuo will draft reproducible steps.
+          </div>
+          <div v-else class="space-y-3">
+            <div
+              v-for="(step, index) in routerPlan"
+              :key="step.id"
+              class="flex items-start gap-3"
+            >
+              <div
+                class="w-6 h-6 rounded-full flex items-center justify-center border"
+                :class="step.status === 'completed' ? 'border-primary bg-primary text-white' : 'border-[#334155] text-[#92a9c9]'"
+              >
+                <span class="material-symbols-outlined text-[16px]">
+                  {{ step.status === 'completed' ? 'check' : 'radio_button_unchecked' }}
+                </span>
+              </div>
+              <div class="flex-1">
+                <p class="text-white text-sm font-semibold">
+                  {{ index + 1 }}. {{ step.title }}
+                </p>
+                <p class="text-[#92a9c9] text-xs mt-1">{{ step.detail }}</p>
+              </div>
+            </div>
+          </div>
+          <button
+            class="w-full mt-2 text-xs font-semibold uppercase tracking-wide rounded-md border border-[#233348] text-[#92a9c9] py-1.5 opacity-50 cursor-not-allowed"
+            disabled
+          >
+            Confirm plan
+          </button>
+        </div>
+        <div class="border-b border-[#233348] p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-white text-sm font-bold flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[20px]">folder_copy</span>
+              Attached Context
+            </h3>
+            <button
+              class="flex items-center gap-1 text-xs text-[#92a9c9] border border-[#233348] rounded px-2 py-1 hover:text-white hover:border-white"
+              @click="handleAddContextFolders"
+            >
+              <span class="material-symbols-outlined text-[16px]">add</span>
+              Add
+            </button>
+          </div>
+          <div v-if="!contextFolders.length" class="text-[#92a9c9] text-sm">
+            No folders attached. Add your app’s source folder so Khanzuo can reason over it.
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="folder in contextFolders"
+              :key="folder.id"
+              class="border border-[#233348] rounded-lg p-3 flex items-start gap-3"
+            >
+              <div class="flex-1 min-w-0">
+                <p class="text-white text-sm font-semibold truncate">{{ folder.name }}</p>
+                <p class="text-[#92a9c9] text-xs mt-1 break-all">{{ folder.path }}</p>
+                <p class="text-[#586c85] text-[11px] mt-1">
+                  {{ folder.summary }}
+                </p>
+                <p class="text-[#3b82f6] text-[10px] mt-1">
+                  dirs: {{ folder.stats?.directories ?? 0 }}, files: {{ folder.stats?.files ?? 0 }}
+                </p>
+              </div>
+              <button
+                class="text-[#92a9c9] hover:text-red-400"
+                @click="handleRemoveContextFolder(folder.id)"
+              >
+                <span class="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="h-12 border-b border-[#233348] flex items-center px-4 justify-between bg-[#161e2a]">
           <h3 class="text-white text-sm font-bold flex items-center gap-2">
             <span class="material-symbols-outlined text-primary text-[20px]">smart_toy</span>

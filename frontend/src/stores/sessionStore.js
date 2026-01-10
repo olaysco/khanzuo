@@ -1,7 +1,15 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { buildRouterDecision } from '@/utils/agentRouter.js'
 
 export const DEFAULT_TARGET_URL = 'https://openprovider.eu'
+
+const createRouterState = () => ({
+  intent: 'idle',
+  summary: '',
+  plan: [],
+  decidedAt: null,
+})
 
 const createSession = (id, title) => ({
   id,
@@ -17,11 +25,27 @@ const createSession = (id, title) => ({
   isSyncing: false,
   lastSync: '--:--',
   manualControl: false,
+  contextFolders: [],
+  routerState: createRouterState(),
 })
 
 const getBridge = () => (typeof window !== 'undefined' ? window.khanzuo ?? null : null)
 const createSessionId = () => (crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}-${Math.random()}`)
 const isSessionActive = (status) => Boolean(status) && status !== 'idle'
+const createFolderRecord = (payload) => ({
+  id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+  path: payload?.path ?? '',
+  name: payload?.name ?? payload?.path ?? 'unknown',
+  preview: payload?.preview ?? { directories: [], files: [] },
+  stats: payload?.stats ?? { directories: 0, files: 0 },
+  summary: payload?.summary ?? 'Attached folder',
+  error: payload?.error,
+  addedAt: new Date().toISOString(),
+})
+const resetRouterState = (session) => {
+  if (!session) return
+  session.routerState = createRouterState()
+}
 
 
 export const useSessionStore = defineStore('session', () => {
@@ -116,6 +140,72 @@ const updateTargetUrl = (value) => {
     session.lastSync = new Date().toLocaleTimeString()
   }
 
+  const attachContextFolders = (session, folders = []) => {
+    if (!session || !Array.isArray(folders) || folders.length === 0) return 0
+    const existingPaths = new Set((session.contextFolders ?? []).map((folder) => folder.path))
+    let added = 0
+    folders.forEach((folder) => {
+      if (!folder?.path || existingPaths.has(folder.path)) return
+      const record = createFolderRecord(folder)
+      if (!session.contextFolders) session.contextFolders = []
+      session.contextFolders.push(record)
+      existingPaths.add(record.path)
+      added += 1
+    })
+    return added
+  }
+
+  const selectContextFolders = async () => {
+    const session = activeSession.value
+    if (!session) return 0
+    if (!bridge || typeof bridge.selectContextFolders !== 'function') {
+      addLogToSession(session, {
+        status: 'error',
+        title: 'Folder picker unavailable',
+        detail: 'Desktop bridge missing selectContextFolders.',
+      })
+      return 0
+    }
+    try {
+      const folders = await bridge.selectContextFolders()
+      const added = attachContextFolders(session, folders)
+      if (added > 0) {
+        addLogToSession(session, {
+          status: 'success',
+          title: 'Added context folders',
+          detail: `${added} folder${added > 1 ? 's' : ''} attached for analysis.`,
+        })
+      } else if (folders?.length) {
+        addLogToSession(session, {
+          status: 'info',
+          title: 'No new folders added',
+          detail: 'Selected folders were already attached.',
+        })
+      }
+      return added
+    } catch (error) {
+      addLogToSession(session, {
+        status: 'error',
+        title: 'Failed to add context folder',
+        detail: error?.message ?? String(error ?? 'Unknown error'),
+      })
+      return 0
+    }
+  }
+
+  const removeContextFolder = (folderId) => {
+    const session = activeSession.value
+    if (!session || !folderId || !Array.isArray(session.contextFolders)) return
+    const index = session.contextFolders.findIndex((folder) => folder.id === folderId)
+    if (index === -1) return
+    const [removed] = session.contextFolders.splice(index, 1)
+    addLogToSession(session, {
+      status: 'warning',
+      title: 'Removed context folder',
+      detail: removed?.name ?? folderId,
+    })
+  }
+
   const startSession = async () => {
     const session = activeSession.value
     if (!session || session.isStarting || isSessionActive(session.status)) return
@@ -193,18 +283,43 @@ const updateTargetUrl = (value) => {
     logPayloads.forEach((payload) => addLogToSession(session, payload))
   }
 
-  const submitPromptLog = () => {
+  const processPrompt = () => {
     const session = activeSession.value
     if (!session) return false
     const text = session.promptValue.trim()
     if (!text) return false
     addLogToSession(session, {
-      title: text.slice(0, 32),
+      title: text.slice(0, 48),
       detail: text,
       status: 'info',
     })
     session.promptValue = ''
-    return true
+    try {
+      const decision = buildRouterDecision({
+        prompt: text,
+        contextFolders: session.contextFolders ?? [],
+      })
+      session.routerState = {
+        ...decision,
+        status: 'planned',
+        plan: Array.isArray(decision.plan)
+          ? decision.plan.map((step) => ({ ...step, status: step.status ?? 'pending' }))
+          : [],
+      }
+      addLogToSession(session, {
+        status: 'success',
+        title: `Planned intent: ${decision.intent}`,
+        detail: decision.summary,
+      })
+      return decision
+    } catch (error) {
+      addLogToSession(session, {
+        status: 'error',
+        title: 'Router planning failed',
+        detail: error?.message ?? String(error ?? 'Unknown error'),
+      })
+      return false
+    }
   }
 
   const refreshActiveLogs = () => {
@@ -230,6 +345,8 @@ const updateTargetUrl = (value) => {
       session.manualControl = false
       session.targetUrl = DEFAULT_TARGET_URL
       session.liveUrl = DEFAULT_TARGET_URL
+      session.contextFolders = []
+      resetRouterState(session)
     })
   }
 
@@ -252,24 +369,24 @@ const updateTargetUrl = (value) => {
     }
   }
 
-const findSession = (sessionId) => {
-  if (!sessionId) return activeSession.value
-  return tabs.value.find((tab) => tab.id === sessionId)
-}
-
-const toggleManualControl = async (sessionId) => {
-  const session = findSession(sessionId)
-  if (!session) return
-  session.manualControl = !session.manualControl
-}
-
-const updateManualUrl = (sessionId, url) => {
-  const target = findSession(sessionId)
-  if (!target) return
-  if (typeof url === 'string' && url.trim()) {
-    target.liveUrl = url.trim()
+  const findSession = (sessionId) => {
+    if (!sessionId) return activeSession.value
+    return tabs.value.find((tab) => tab.id === sessionId)
   }
-}
+
+  const toggleManualControl = async (sessionId) => {
+    const session = findSession(sessionId)
+    if (!session) return
+    session.manualControl = !session.manualControl
+  }
+
+  const updateManualUrl = (sessionId, url) => {
+    const target = findSession(sessionId)
+    if (!target) return
+    if (typeof url === 'string' && url.trim()) {
+      target.liveUrl = url.trim()
+    }
+  }
 
   const handleStatusUpdate = (payload) => {
     const { sessionId, status, captureStatus, log } = payload ?? {}
@@ -316,12 +433,14 @@ const updateManualUrl = (sessionId, url) => {
     updateTargetUrl,
     startSession,
     stopSession,
-    submitPromptLog,
+    processPrompt,
     refreshActiveLogs,
     clearSessionData,
     setFrameSource,
     toggleManualControl,
     updateManualUrl,
+    selectContextFolders,
+    removeContextFolder,
     DEFAULT_TARGET_URL,
   }
 })
