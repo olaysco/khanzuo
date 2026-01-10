@@ -3,33 +3,9 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
-  url: {
-    type: String,
-    default: '',
-  },
   status: {
     type: String,
     default: 'idle',
-  },
-  theme: {
-    type: String,
-    default: 'dark',
-  },
-  language: {
-    type: String,
-    default: 'en-us',
-  },
-  themeOptions: {
-    type: Array,
-    default: () => [],
-  },
-  languageOptions: {
-    type: Array,
-    default: () => [],
-  },
-  isStarting: {
-    type: Boolean,
-    default: false,
   },
   tabs: {
     type: Array,
@@ -39,18 +15,13 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  isStarting: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits([
-  'update:url',
-  'start',
-  'stop',
-  'update:theme',
-  'update:language',
-  'select-tab',
-  'add-tab',
-  'open-settings',
-])
+const emit = defineEmits(['stop', 'select-tab', 'add-tab', 'open-settings'])
 const { t } = useI18n()
 
 const isRunning = computed(() => props.status !== 'idle')
@@ -60,7 +31,6 @@ const statusLabel = computed(() =>
 
 const sessionTabs = computed(() => props.tabs ?? [])
 const activeTabId = computed(() => props.activeTabId ?? '')
-const sessionStatusLabel = computed(() => statusLabel.value)
 const isStopDisabled = computed(() => !isRunning.value || props.isStarting)
 
 const handleTabSelect = (tabId) => {
@@ -112,7 +82,7 @@ const openSettings = () => {
       <div class="flex items-center gap-4">
         <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full" :class="{ 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400': !isRunning }">
           <span class="material-symbols-outlined text-green-500 text-[16px] filled" :class="{ 'text-yellow-400': !isRunning }">bolt</span>
-          <span class="text-green-500 text-xs font-bold uppercase tracking-wider" :class="{ 'text-yellow-400': !isRunning }">{{ sessionStatusLabel }}</span>
+          <span class="text-green-500 text-xs font-bold uppercase tracking-wider" :class="{ 'text-yellow-400': !isRunning }">{{ statusLabel }}</span>
         </div>
         <div class="flex gap-3">
           <button
@@ -135,99 +105,3 @@ const openSettings = () => {
       </div>
     </header>
 </template>
-
-<style scoped>
-.app-header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 1.1rem 1.5rem 1rem;
-  background: var(--khz-surface-elevated);
-  border-bottom: 1px solid var(--khz-border-soft);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.brand-sub {
-  display: block;
-  font-size: 0.75rem;
-}
-
-.brand-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(140deg, #0f6cfc, #4098ff);
-  box-shadow: 0 8px 24px rgba(16, 108, 252, 0.35);
-}
-
-.header-input {
-  width: 100%;
-}
-
-.header-controls {
-  display: flex;
-  align-items: center;
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.ghost-control {
-  color: var(--khz-icon);
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.85rem;
-  background: var(--khz-pill-bg);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  color: var(--khz-text-muted);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #94a3b8;
-}
-
-.status-dot.idle {
-  background: #556078;
-}
-
-.status-dot.running {
-  background: #3b82f6;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
-}
-
-.start-button {
-  min-width: 160px;
-}
-
-.prefix-icon {
-  color: var(--khz-icon-soft);
-}
-
-@media (max-width: 1100px) {
-  .app-header {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .header-controls {
-    justify-content: flex-end;
-  }
-}
-</style>

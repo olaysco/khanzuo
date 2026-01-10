@@ -6,7 +6,6 @@ import { useI18n } from 'vue-i18n'
 import AppHeader from '@/components/layout/header/AppHeader.vue'
 import UserViewPanel from '@/components/panels/session/UserViewPanel.vue'
 import SettingsDialog from '@/pages/SettingsDialog.vue'
-import { languageOptions as availableLanguages } from '@/langs/index.js'
 import { useSessionStore, DEFAULT_TARGET_URL } from '@/stores/sessionStore.js'
 
 const { t, locale } = useI18n()
@@ -20,14 +19,6 @@ const showSettings = ref(false)
 const serverTime = ref('--:--:-- UTC')
 let clockTimer = null
 
-const themeOptions = computed(() => [
-  { label: t('ui.nav.themeOptions.auto'), value: 'auto' },
-  { label: t('ui.nav.themeOptions.light'), value: 'light' },
-  { label: t('ui.nav.themeOptions.dark'), value: 'dark' },
-])
-
-const languageOptions = computed(() => availableLanguages.map(({ label, value }) => ({ label, value })))
-
 const resolvedTheme = computed(() => {
   if (themePreference.value === 'auto') {
     return osTheme.value === 'dark' ? 'dark' : 'light'
@@ -38,9 +29,6 @@ const resolvedTheme = computed(() => {
 const displayUrl = computed(() => activeSession.value?.targetUrl?.trim() || DEFAULT_TARGET_URL)
 const currentSessionStatus = computed(() => activeSession.value?.status ?? 'idle')
 const isSessionActive = computed(() => currentSessionStatus.value !== 'idle')
-const sessionStatusLabel = computed(() =>
-  isSessionActive.value ? t('ui.nav.statusRunning') : t('ui.nav.statusIdle'),
-)
 const formattedLogs = computed(() => activeSession.value?.logs ?? [])
 const isStopDisabled = computed(() => !isSessionActive.value)
 
@@ -119,20 +107,11 @@ onBeforeUnmount(() => {
 <template>
   <div class="flex flex-col h-full bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
     <AppHeader
-      :url="displayUrl"
       :status="currentSessionStatus"
-      :theme="resolvedTheme"
-      :language="selectedLanguage"
-      :theme-options="themeOptions"
-      :language-options="languageOptions"
       :tabs="tabs"
       :active-tab-id="activeTabId"
       :is-starting="activeSession?.isStarting ?? false"
-      @update:url="updateTargetUrl"
-      @start="handleStartSession"
       @stop="handleStopSession"
-      @update:theme="(value) => (themePreference.value = value)"
-      @update:language="(value) => (selectedLanguage.value = value)"
       @select-tab="handleTabSelect"
       @add-tab="handleAddTab"
       @open-settings="openSettings"
