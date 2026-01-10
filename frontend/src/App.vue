@@ -1,35 +1,32 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useOsTheme } from 'naive-ui'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
-import {
-  NConfigProvider,
-  NGlobalStyle,
-  darkTheme,
-  useOsTheme,
-} from 'naive-ui'
-import SessionTabs from '@/components/layout/navigation/SessionTabs.vue'
 import AppHeader from '@/components/layout/header/AppHeader.vue'
 import UserViewPanel from '@/components/panels/session/UserViewPanel.vue'
-import AgentLogsPanel from '@/components/panels/agent/AgentLogsPanel.vue'
-import IssueComposer from '@/components/panels/agent/IssueComposer.vue'
-import AppFooter from '@/components/layout/footer/AppFooter.vue'
 import SettingsDialog from '@/pages/SettingsDialog.vue'
-import { languageOptions } from '@/langs/index.js'
+import { languageOptions as availableLanguages } from '@/langs/index.js'
 import { useSessionStore, DEFAULT_TARGET_URL } from '@/stores/sessionStore.js'
 
 const { t, locale } = useI18n()
-
 const osTheme = useOsTheme()
-const themePreference = ref('dark')
-const selectedLanguage = ref(languageOptions[0]?.value ?? 'en-us')
-const serverTime = ref('--:--:-- UTC')
 const sessionStore = useSessionStore()
 const { tabs, activeTabId, activeSession, activePromptValue } = storeToRefs(sessionStore)
+
+const themePreference = ref('dark')
+const selectedLanguage = ref('en-us')
 const showSettings = ref(false)
-const selectedAgent = ref('codex')
+const serverTime = ref('--:--:-- UTC')
 let clockTimer = null
-let frameUpdateOff = null
+
+const themeOptions = computed(() => [
+  { label: t('ui.nav.themeOptions.auto'), value: 'auto' },
+  { label: t('ui.nav.themeOptions.light'), value: 'light' },
+  { label: t('ui.nav.themeOptions.dark'), value: 'dark' },
+])
+
+const languageOptions = computed(() => availableLanguages.map(({ label, value }) => ({ label, value })))
 
 const resolvedTheme = computed(() => {
   if (themePreference.value === 'auto') {
@@ -38,35 +35,14 @@ const resolvedTheme = computed(() => {
   return themePreference.value
 })
 
-const naiveTheme = computed(() => (resolvedTheme.value === 'dark' ? darkTheme : null))
-
-const themeOptions = computed(() => [
-  { label: t('ui.nav.themeOptions.dark'), value: 'dark' },
-  { label: t('ui.nav.themeOptions.light'), value: 'light' },
-  { label: t('ui.nav.themeOptions.auto'), value: 'auto' },
-])
-
-const languageSelectOptions = computed(() =>
-  languageOptions.map((option) => ({ label: option.label, value: option.value })),
+const displayUrl = computed(() => activeSession.value?.targetUrl?.trim() || DEFAULT_TARGET_URL)
+const currentSessionStatus = computed(() => activeSession.value?.status ?? 'idle')
+const isSessionActive = computed(() => currentSessionStatus.value !== 'idle')
+const sessionStatusLabel = computed(() =>
+  isSessionActive.value ? t('ui.nav.statusRunning') : t('ui.nav.statusIdle'),
 )
-
-const naiveUILocale = computed(() => {
-  const match = languageOptions.find((option) => option.value === selectedLanguage.value)
-  return match?.naiveLocale
-})
-
-const naiveUIDateLocale = computed(() => {
-  const match = languageOptions.find((option) => option.value === selectedLanguage.value)
-  return match?.naiveDateLocale
-})
-
-const activeFrameSrc = computed(() => activeSession.value?.frameSrc ?? '')
-const isStreamReady = computed(() => Boolean(activeFrameSrc.value))
-
-const agentStatusLabel = computed(() => {
-  const status = activeSession.value?.status ?? 'idle'
-  return status === 'idle' ? t('ui.nav.statusIdle') : t('ui.nav.statusRunning')
-})
+const formattedLogs = computed(() => activeSession.value?.logs ?? [])
+const isStopDisabled = computed(() => !isSessionActive.value)
 
 watch(selectedLanguage, (value) => {
   locale.value = value
@@ -77,40 +53,22 @@ watch(
   (value) => {
     if (typeof document !== 'undefined') {
       document.body.dataset.theme = value
+      document.documentElement.classList.toggle('dark', value === 'dark')
     }
   },
   { immediate: true },
 )
 
-const updateTargetUrl = (value) => {
-  sessionStore.updateTargetUrl(value)
+const updateServerTime = () => {
+  serverTime.value = `${new Date().toUTCString().slice(17, 25)} UTC`
 }
 
-const updateTheme = (value) => {
-  themePreference.value = value
-}
-
-const updateLanguage = (value) => {
-  selectedLanguage.value = value
-}
-
-const handleTabSelect = (tabId) => {
-  sessionStore.setActiveTab(tabId)
-}
-
-const handleAddTab = () => {
-  sessionStore.addTab()
-}
-
-const handleTabRename = ({ id, title }) => {
-  sessionStore.renameTab(id, title)
-}
-
-const handleTabClose = (tabId) => {
-  sessionStore.removeTab(tabId)
+const handleStartSession = () => {
+  sessionStore.startSession()
 }
 
 const handleStopSession = () => {
+  if (isStopDisabled.value) return
   sessionStore.stopSession([
     {
       title: t('ui.events.sessionStopped'),
@@ -118,15 +76,6 @@ const handleStopSession = () => {
       status: 'error',
     },
   ])
-}
-
-const updateServerTime = () => {
-  const now = new Date()
-  serverTime.value = `${now.toUTCString().slice(17, 25)} UTC`
-}
-
-const handleStartSession = () => {
-  sessionStore.startSession()
 }
 
 const handlePromptSend = () => {
@@ -137,27 +86,20 @@ const handleManualToggle = () => {
   sessionStore.toggleManualControl()
 }
 
-const refreshLogs = () => {
-  sessionStore.refreshActiveLogs()
-}
+const handleTabSelect = (tabId) => sessionStore.setActiveTab(tabId)
+const handleAddTab = () => sessionStore.addTab()
 
-const openSettings = () => {
-  showSettings.value = true
-}
-
-const closeSettings = () => {
-  showSettings.value = false
-}
-
+const openSettings = () => (showSettings.value = true)
+const closeSettings = () => (showSettings.value = false)
 const handleSettingsSave = (settings) => {
   themePreference.value = settings.theme
   selectedLanguage.value = settings.language
-  selectedAgent.value = settings.agent
   closeSettings()
 }
 
-const handleSettingsClearData = () => {
-  sessionStore.clearSessionData()
+const updateTargetUrl = (value) => {
+  const nextValue = typeof value === 'string' ? value : value?.target?.value || ''
+  sessionStore.updateTargetUrl(nextValue)
 }
 
 onMounted(() => {
@@ -167,155 +109,161 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer)
-  if (typeof frameUpdateOff === 'function') frameUpdateOff()
 })
 </script>
 
 <template>
-  <n-config-provider
-    :theme="naiveTheme"
-    :locale="naiveUILocale"
-    :date-locale="naiveUIDateLocale"
-  >
-    <n-global-style />
-    <div class="app-shell" :data-theme="resolvedTheme">
-      <session-tabs
-        :tabs="tabs"
-        :active="activeTabId"
-        @select="handleTabSelect"
-        @add="handleAddTab"
-        @rename="handleTabRename"
-        @close="handleTabClose"
-      />
-      <app-header
-        :url="activeSession?.targetUrl || DEFAULT_TARGET_URL"
-        :status="activeSession?.status ?? 'idle'"
-        :is-starting="activeSession?.isStarting ?? false"
-        :theme="themePreference"
-        :language="selectedLanguage"
-        :theme-options="themeOptions"
-        :language-options="languageSelectOptions"
-        @update:url="updateTargetUrl"
-        @update:theme="updateTheme"
-        @update:language="updateLanguage"
-        @start="handleStartSession"
-        @stop="handleStopSession"
-      />
-      <div class="app-body">
-        <user-view-panel
-          :stream-ready="isStreamReady"
-          :frame-src="activeFrameSrc"
-          :has-input="!!activePromptValue"
-          :target-url="activeSession?.targetUrl"
-          :manual-control="activeSession?.manualControl ?? false"
-          @toggle-control="handleManualToggle"
-        />
-        <aside class="sidebar">
-          <agent-logs-panel
-            :logs="activeSession?.logs ?? []"
-            :is-syncing="activeSession?.isSyncing ?? false"
-            :last-sync="activeSession?.lastSync ?? '--:--'"
-            @refresh="refreshLogs"
-          />
-          <issue-composer
-            v-model="activePromptValue"
-            :placeholder="t('ui.prompts.placeholder')"
-            :disclaimer="t('ui.prompts.disclaimer')"
-            @send="handlePromptSend"
-          />
-        </aside>
+  <div class="flex flex-col h-full bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
+    <AppHeader
+      :url="displayUrl"
+      :status="currentSessionStatus"
+      :theme="resolvedTheme"
+      :language="selectedLanguage"
+      :theme-options="themeOptions"
+      :language-options="languageOptions"
+      :tabs="tabs"
+      :active-tab-id="activeTabId"
+      :is-starting="activeSession?.isStarting ?? false"
+      @update:url="updateTargetUrl"
+      @start="handleStartSession"
+      @stop="handleStopSession"
+      @update:theme="(value) => (themePreference.value = value)"
+      @update:language="(value) => (selectedLanguage.value = value)"
+      @select-tab="handleTabSelect"
+      @add-tab="handleAddTab"
+      @open-settings="openSettings"
+    />
+
+    <div class="flex-none bg-[#161e2a] border-b border-[#233348] px-6 py-2 flex items-center gap-4">
+      <div class="flex gap-2 text-[#92a9c9]">
+        <button class="p-1 hover:text-white transition-colors"><span class="material-symbols-outlined text-[20px]">arrow_back</span></button>
+        <button class="p-1 hover:text-white transition-colors"><span class="material-symbols-outlined text-[20px]">arrow_forward</span></button>
+        <button class="p-1 hover:text-white transition-colors" @click="handleStartSession"><span class="material-symbols-outlined text-[20px]">refresh</span></button>
       </div>
-      <app-footer
-        :agent-status="agentStatusLabel"
-        version="v0.0.1-beta"
-        :capture-status="activeSession?.captureStatus ?? 'Ready'"
-        :server-time="serverTime"
-        @open-settings="openSettings"
-      />
-      <settings-dialog
-        v-if="showSettings"
-        :language="selectedLanguage"
-        :theme="themePreference"
-        :agent="selectedAgent"
-        :language-options="languageSelectOptions"
-        :theme-options="themeOptions"
-        @close="closeSettings"
-        @cancel="closeSettings"
-        @save="handleSettingsSave"
-        @clear-data="handleSettingsClearData"
-      />
+      <div class="flex-1 max-w-3xl">
+        <div class="flex w-full items-center bg-[#0d1219] rounded-md border border-[#233348] h-9 px-3 gap-2">
+          <span class="material-symbols-outlined text-[#92a9c9] text-[16px]">lock</span>
+          <input
+            class="w-full bg-transparent border-none p-0 text-sm text-white placeholder-[#586c85] focus:ring-0 font-mono"
+            :value="displayUrl"
+            @input="updateTargetUrl"
+          />
+          <div class="flex gap-2 text-[#92a9c9]">
+            <button class="hover:text-white"><span class="material-symbols-outlined text-[18px]">star_border</span></button>
+            <button class="hover:text-white"><span class="material-symbols-outlined text-[18px]">ios_share</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="ml-auto text-xs font-mono text-[#586c85]">Session ID: <span class="text-[#92a9c9]">{{ activeSession?.id }}</span></div>
     </div>
-  </n-config-provider>
+
+    <main class="flex-1 flex overflow-hidden">
+      <section class="flex-1 flex flex-col bg-[#0d1219] relative min-w-0 p-6 overflow-hidden">
+        <div class="absolute top-8 left-8 z-10">
+          <div class="bg-black/80 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/10 shadow-xl flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+            User View (Live)
+          </div>
+        </div>
+        <div class="flex-1 bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col relative border border-[#334155]">
+          <user-view-panel
+            class="flex-1"
+            :stream-ready="Boolean(displayUrl)"
+            :frame-src="activeSession?.frameSrc"
+            :has-input="!!activePromptValue"
+            :target-url="displayUrl"
+            :manual-control="activeSession?.manualControl ?? false"
+            @toggle-control="handleManualToggle"
+          />
+        </div>
+      </section>
+      <aside class="w-[400px] flex-none border-l border-[#233348] bg-[#111822] flex flex-col">
+        <div class="h-12 border-b border-[#233348] flex items-center px-4 justify-between bg-[#161e2a]">
+          <h3 class="text-white text-sm font-bold flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[20px]">smart_toy</span>
+            AI Investigation Log
+          </h3>
+          <div class="flex gap-2 text-[#92a9c9]">
+            <button class="hover:text-white p-1 rounded hover:bg-[#233348]"><span class="material-symbols-outlined text-[18px]">download</span></button>
+            <button class="hover:text-white p-1 rounded hover:bg-[#233348]"><span class="material-symbols-outlined text-[18px]">keyboard_double_arrow_right</span></button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+          <div v-if="!formattedLogs.length" class="text-[#92a9c9] text-sm text-center py-8">
+            Agent actions and observations will appear here.
+          </div>
+          <div v-for="log in formattedLogs" :key="log.id" class="flex gap-3">
+            <div class="flex flex-col items-center pt-1 text-primary">
+              <span class="material-symbols-outlined text-[16px]">radio_button_checked</span>
+              <div class="w-px bg-[#233348] flex-1" />
+            </div>
+            <div class="flex-1 pb-4 border-b border-[#233348]">
+              <p class="text-white text-sm font-semibold">{{ log.title }}</p>
+              <p class="text-[#92a9c9] text-xs mt-1">{{ log.detail }}</p>
+              <span class="text-[#586c85] text-[10px] font-mono">{{ log.timestamp }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="p-4 bg-[#161e2a] border-t border-[#233348]">
+          <div class="relative">
+            <textarea
+              class="w-full bg-[#0d1219] border border-[#233348] rounded-lg p-3 pr-12 text-sm text-white placeholder-[#586c85] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none h-24"
+              :value="activePromptValue"
+              @input="activePromptValue = $event.target.value"
+              placeholder="Instruct the AI agent to reproduce a bug..."
+            />
+            <div class="absolute bottom-2 right-2 flex gap-1">
+              <button class="p-1.5 hover:bg-[#233348] rounded text-[#92a9c9]"><span class="material-symbols-outlined text-[18px]">add_a_photo</span></button>
+              <button class="flex items-center justify-center bg-primary hover:bg-blue-600 text-white p-1.5 rounded-md shadow-lg" @click="handlePromptSend">
+                <span class="material-symbols-outlined text-[18px]">send</span>
+              </button>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-2 overflow-x-auto pb-1 text-[#92a9c9] text-[11px]">
+            <button class="px-2 py-1 bg-[#233348] hover:bg-[#324867] rounded">Check Console Errors</button>
+            <button class="px-2 py-1 bg-[#233348] hover:bg-[#324867] rounded">Verify Login</button>
+            <button class="px-2 py-1 bg-[#233348] hover:bg-[#324867] rounded">Take Screenshot</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+    <footer class="flex-none h-8 bg-[#0d1219] border-t border-[#233348] flex items-center px-4 justify-between text-xs font-mono text-[#586c85]">
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2 text-white">
+          <span class="w-2 h-2 rounded-full bg-green-500"></span>
+          <span>Agent Status: {{ activeSession?.status ?? 'idle' }}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">timer</span>
+          <span>00:02:45</span>
+        </div>
+        <div class="hidden md:flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">network_check</span>
+          <span>45ms latency</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <span>v0.0.1-beta</span>
+        <span class="text-[#92a9c9]">Last update: {{ serverTime }}</span>
+      </div>
+    </footer>
+    <settings-dialog
+      v-if="showSettings"
+      :language="selectedLanguage"
+      :theme="themePreference"
+      :agent="'codex'"
+      :language-options="[]"
+      :theme-options="[]"
+      @close="closeSettings"
+      @cancel="closeSettings"
+      @save="handleSettingsSave"
+      @clear-data="sessionStore.clearSessionData"
+    />
+  </div>
 </template>
 
 <style scoped>
-.app-shell {
-  --khz-surface: #03070f;
-  --khz-surface-elevated: #070c14;
-  --khz-panel: #0c1422;
-  --khz-card: #0b1220;
-  --khz-border: rgba(255, 255, 255, 0.05);
-  --khz-border-soft: rgba(255, 255, 255, 0.04);
-  --khz-text: #f5f8ff;
-  --khz-text-muted: rgba(255, 255, 255, 0.72);
-  --khz-chip-bg: rgba(7, 11, 19, 0.95);
-  --khz-chip-border: rgba(255, 255, 255, 0.08);
-  --khz-pill-bg: rgba(255, 255, 255, 0.08);
-  --khz-divider: rgba(255, 255, 255, 0.12);
-  --khz-icon: rgba(255, 255, 255, 0.78);
-  --khz-icon-soft: rgba(255, 255, 255, 0.45);
-  --khz-input-bg: #040914;
-  --khz-input-border: rgba(255, 255, 255, 0.55);
-
-  min-height: 100vh;
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: var(--khz-surface);
-  color: var(--khz-text);
-}
-
-.app-shell[data-theme='light'] {
-  --khz-surface: #f8f9fc;
-  --khz-surface-elevated: #ffffff;
-  --khz-panel: #ffffff;
-  --khz-card: #ffffff;
-  --khz-border: rgba(15, 23, 42, 0.12);
-  --khz-border-soft: rgba(15, 23, 42, 0.05);
-  --khz-text: #0f172a;
-  --khz-text-muted: rgba(15, 23, 42, 0.65);
-  --khz-chip-bg: rgba(248, 250, 255, 0.95);
-  --khz-chip-border: rgba(15, 23, 42, 0.08);
-  --khz-pill-bg: rgba(15, 23, 42, 0.08);
-  --khz-divider: rgba(15, 23, 42, 0.12);
-  --khz-icon: rgba(51, 65, 85, 0.9);
-  --khz-icon-soft: rgba(99, 115, 139, 0.85);
-  --khz-input-bg: #eef2ff;
-  --khz-input-border: rgba(99, 102, 241, 0.35);
-}
-
-
-
-.app-body {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 1.25rem;
-  padding: 1.25rem 1.5rem 1.5rem;
-  overflow: hidden;
-}
-
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-@media (max-width: 1200px) {
-  .app-body {
-    grid-template-columns: 1fr;
-  }
+textarea {
+  font-family: 'Inter', sans-serif;
 }
 </style>

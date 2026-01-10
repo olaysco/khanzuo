@@ -20,6 +20,8 @@ const createSession = (id, title) => ({
 
 const getBridge = () => (typeof window !== 'undefined' ? window.khanzuo ?? null : null)
 const createSessionId = () => (crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}-${Math.random()}`)
+const isSessionActive = (status) => Boolean(status) && status !== 'idle'
+
 
 export const useSessionStore = defineStore('session', () => {
   const tabs = ref([
@@ -61,7 +63,7 @@ export const useSessionStore = defineStore('session', () => {
     if (index === -1) return
     const session = tabs.value[index]
 
-    if (bridge && typeof bridge.stopSession === 'function' && session.status === 'running') {
+    if (bridge && typeof bridge.stopSession === 'function' && isSessionActive(session.status)) {
       try {
         await bridge.stopSession({ sessionId: session.id })
       } catch (error) {
@@ -112,7 +114,8 @@ export const useSessionStore = defineStore('session', () => {
 
   const startSession = async () => {
     const session = activeSession.value
-    if (!session || session.isStarting || session.status === 'running') return
+    if (!session || session.isStarting || isSessionActive(session.status)) return
+    session.status = 'starting'
     session.isStarting = true
     session.frameSrc = ''
     // session.id = await CreateSessionID();
@@ -169,7 +172,7 @@ export const useSessionStore = defineStore('session', () => {
     session.captureStatus = 'Ready'
     session.manualControl = false
 
-    if (bridge && typeof bridge.stopSession === 'function' && previousStatus === 'running') {
+    if (bridge && typeof bridge.stopSession === 'function' && isSessionActive(previousStatus)) {
       try {
         await bridge.stopSession({ sessionId: session.id })
       } catch (error) {
@@ -252,7 +255,7 @@ export const useSessionStore = defineStore('session', () => {
     if (!sessionId) return
     const session = tabs.value.find((tab) => tab.id === sessionId)
     if (!session) return
-    if (status) session.status = status
+    if (status) session.status = typeof status === 'string' ? status.trim().toLowerCase() : status
     if (captureStatus) session.captureStatus = captureStatus
     if (log) addLogToSession(session, log)
   }
