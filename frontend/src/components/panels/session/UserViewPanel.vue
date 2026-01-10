@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { NCard } from 'naive-ui'
 import EmptySessionSlate from '@/components/common/molecules/EmptySessionSlate.vue'
 
@@ -20,14 +20,75 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  manualUrl: {
+    type: String,
+    default: '',
+  },
   manualControl: {
     type: Boolean,
     default: false,
   },
+  sessionId: {
+    type: String,
+    default: '',
+  },
 })
 
-const emit = defineEmits(['toggle-control'])
-const liveSrc = computed(() => props.targetUrl?.trim() || 'about:blank')
+const emit = defineEmits(['toggle-control', 'update:manual-url'])
+const liveSrc = computed(() => props.manualUrl?.trim() || props.targetUrl?.trim() || 'about:blank')
+const partitionId = computed(() => (props.sessionId ? `persist:khanzuo-session-${props.sessionId}` : undefined))
+const manualWebview = ref(null)
+const webviewCleanupFns = []
+
+const emitManualUrl = (url) => {
+  if (!url || typeof url !== 'string') return
+  emit('update:manual-url', url)
+}
+
+const cleanupWebviewListeners = () => {
+  while (webviewCleanupFns.length) {
+    const disposer = webviewCleanupFns.pop()
+    if (typeof disposer === 'function') disposer()
+  }
+}
+
+const syncManualUrl = () => {
+  const webview = manualWebview.value
+  if (!webview) return
+  const currentUrl = typeof webview.getURL === 'function' ? webview.getURL() : webview.src
+  if (currentUrl) emitManualUrl(currentUrl)
+}
+
+const attachWebviewListeners = () => {
+  cleanupWebviewListeners()
+  const webview = manualWebview.value
+  if (!webview) return
+  const handler = () => syncManualUrl()
+  webview.addEventListener('did-navigate', handler)
+  webviewCleanupFns.push(() => webview.removeEventListener('did-navigate', handler))
+  webview.addEventListener('did-navigate-in-page', handler)
+  webviewCleanupFns.push(() => webview.removeEventListener('did-navigate-in-page', handler))
+  syncManualUrl()
+}
+
+watch(
+  () => props.manualControl,
+  (enabled) => {
+    if (enabled) {
+      nextTick(() => {
+        attachWebviewListeners()
+      })
+    } else {
+      cleanupWebviewListeners()
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  cleanupWebviewListeners()
+})
+
 const handleToggleControl = () => emit('toggle-control')
 </script>
 
@@ -40,7 +101,14 @@ const handleToggleControl = () => emit('toggle-control')
         </button>
       </div>
       <div v-if="props.manualControl" class="live-wrapper">
-        <webview :src="liveSrc" class="live-view" allowpopups disablewebsecurity />
+        <webview
+          ref="manualWebview"
+          :src="liveSrc"
+          :partition="partitionId"
+          class="live-view"
+          allowpopups
+          disablewebsecurity
+        />
       </div>
       <div v-else>
         <div v-if="props.frameSrc" class="frame-wrapper">

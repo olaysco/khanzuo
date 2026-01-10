@@ -82,8 +82,12 @@ const handlePromptSend = () => {
   sessionStore.submitPromptLog()
 }
 
-const handleManualToggle = () => {
-  sessionStore.toggleManualControl()
+const handleManualToggle = (sessionId) => {
+  sessionStore.toggleManualControl(sessionId)
+}
+
+const handleManualUrlChange = (sessionId, url) => {
+  sessionStore.updateManualUrl(sessionId, url)
 }
 
 const handleTabSelect = (tabId) => sessionStore.setActiveTab(tabId)
@@ -138,9 +142,8 @@ onBeforeUnmount(() => {
       <div class="flex gap-2 text-[#92a9c9]">
         <button class="p-1 hover:text-white transition-colors"><span class="material-symbols-outlined text-[20px]">arrow_back</span></button>
         <button class="p-1 hover:text-white transition-colors"><span class="material-symbols-outlined text-[20px]">arrow_forward</span></button>
-        <button class="p-1 hover:text-white transition-colors" @click="handleStartSession"><span class="material-symbols-outlined text-[20px]">refresh</span></button>
       </div>
-      <div class="flex-1 max-w-3xl">
+      <div class="flex-1 max-w-3xl flex items-center gap-2">
         <div class="flex w-full items-center bg-[#0d1219] rounded-md border border-[#233348] h-9 px-3 gap-2">
           <span class="material-symbols-outlined text-[#92a9c9] text-[16px]">lock</span>
           <input
@@ -153,6 +156,9 @@ onBeforeUnmount(() => {
             <button class="hover:text-white"><span class="material-symbols-outlined text-[18px]">ios_share</span></button>
           </div>
         </div>
+        <button class="flex items-center justify-center h-9 w-9 rounded-md border border-[#233348] bg-[#0d1219] text-[#92a9c9] hover:text-white hover:bg-[#233348] transition-colors" @click="handleStartSession">
+          <span class="material-symbols-outlined text-[20px]">keyboard_return</span>
+        </button>
       </div>
       <div class="ml-auto text-xs font-mono text-[#586c85]">Session ID: <span class="text-[#92a9c9]">{{ activeSession?.id }}</span></div>
     </div>
@@ -167,13 +173,19 @@ onBeforeUnmount(() => {
         </div>
         <div class="flex-1 bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col relative border border-[#334155]">
           <user-view-panel
+            v-for="session in tabs"
+            :key="session.id"
+            v-show="session.id === activeTabId"
             class="flex-1"
-            :stream-ready="Boolean(displayUrl)"
-            :frame-src="activeSession?.frameSrc"
-            :has-input="!!activePromptValue"
-            :target-url="displayUrl"
-            :manual-control="activeSession?.manualControl ?? false"
-            @toggle-control="handleManualToggle"
+            :stream-ready="Boolean(session.targetUrl?.trim())"
+            :frame-src="session.frameSrc"
+            :has-input="Boolean(session.promptValue)"
+            :target-url="session.targetUrl?.trim() || DEFAULT_TARGET_URL"
+            :manual-url="session.liveUrl?.trim() || session.targetUrl?.trim() || DEFAULT_TARGET_URL"
+            :session-id="session.id"
+            :manual-control="session.manualControl ?? false"
+            @toggle-control="() => handleManualToggle(session.id)"
+            @update:manual-url="(value) => handleManualUrlChange(session.id, value)"
           />
         </div>
       </section>

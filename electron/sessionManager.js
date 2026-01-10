@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
 const FRAME_INTERVAL_MS = Number(process.env.KHANZUO_FRAME_INTERVAL_MS || 1500);
 const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 const SCREENSHOT_OPTIONS = { type: 'jpeg', quality: 70, fullPage: true };
+const CHROMIUM_ARGS = ['--disable-gpu', '--no-sandbox', '--ignore-certificate-errors', '--allow-insecure-localhost'];
 
 async function closeSafely(handle) {
   if (!handle) return;
@@ -30,8 +31,8 @@ class SessionManager extends EventEmitter {
 
     let browser;
     try {
-      browser = await chromium.launch({ headless: true, args: ['--disable-gpu', '--no-sandbox'] });
-      const context = await browser.newContext({ viewport: DEFAULT_VIEWPORT });
+      browser = await chromium.launch({ headless: true, args: CHROMIUM_ARGS });
+      const context = await browser.newContext({ viewport: DEFAULT_VIEWPORT, ignoreHTTPSErrors: true });
       const page = await context.newPage();
       const session = {
         id: sessionId,

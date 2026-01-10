@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const GoBridge = require('./goBridge');
 const SessionManager = require('./sessionManager');
@@ -6,11 +6,24 @@ const SessionManager = require('./sessionManager');
 const REMOTE_DEBUG_PORT = Number(process.env.KHANZUO_REMOTE_DEBUG_PORT || 9333);
 app.commandLine.appendSwitch('remote-debugging-port', String(REMOTE_DEBUG_PORT));
 app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
+app.commandLine.appendSwitch('ignore-certificate-errors');
+app.commandLine.appendSwitch('allow-insecure-localhost');
 
 let mainWindow;
 const sessionViews = new Map();
 const goBridge = new GoBridge();
 const sessionManager = new SessionManager();
+const patchedSessions = new WeakSet();
+
+function allowCertificatesForSession(targetSession) {
+  if (!targetSession || patchedSessions.has(targetSession)) return;
+  try {
+    targetSession.setCertificateVerifyProc((_request, callback) => callback(0));
+    patchedSessions.add(targetSession);
+  } catch (error) {
+    console.warn('[certificates] failed to set verify proc', error?.message ?? error);
+  }
+}
 
 function getRendererURL() {
   if (!app.isPackaged) {
@@ -47,6 +60,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  allowCertificatesForSession(session.defaultSession);
   createWindow();
 
   app.on('activate', () => {
@@ -60,6 +74,15 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('certificate-error', (event, _webContents, _url, _error, _certificate, callback) => {
+  event.preventDefault();
+  callback(true);
+});
+
+app.on('web-contents-created', (_event, contents) => {
+  allowCertificatesForSession(contents.session);
 });
 
 // IPC handlers

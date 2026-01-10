@@ -7,6 +7,7 @@ const createSession = (id, title) => ({
   id,
   title,
   targetUrl: DEFAULT_TARGET_URL,
+  liveUrl: DEFAULT_TARGET_URL,
   status: 'idle',
   isStarting: false,
   frameSrc: '',
@@ -95,10 +96,13 @@ export const useSessionStore = defineStore('session', () => {
     if (session) session.title = trimmed
   }
 
-  const updateTargetUrl = (value) => {
-    if (!activeSession.value) return
-    activeSession.value.targetUrl = value
+const updateTargetUrl = (value) => {
+  if (!activeSession.value) return
+  activeSession.value.targetUrl = value
+  if (!activeSession.value.manualControl) {
+    activeSession.value.liveUrl = value
   }
+}
 
   const addLogToSession = (session, payload) => {
     if (!session) return
@@ -145,6 +149,7 @@ export const useSessionStore = defineStore('session', () => {
       await bridge.startSession({ sessionId: session.id, targetUrl })
       session.status = 'running'
       session.captureStatus = 'Capturing'
+      session.liveUrl = targetUrl
       addLogToSession(session, {
         status: 'success',
         title: 'Session started',
@@ -171,6 +176,7 @@ export const useSessionStore = defineStore('session', () => {
     session.frameSrc = ''
     session.captureStatus = 'Ready'
     session.manualControl = false
+    session.liveUrl = session.targetUrl
 
     if (bridge && typeof bridge.stopSession === 'function' && isSessionActive(previousStatus)) {
       try {
@@ -222,6 +228,8 @@ export const useSessionStore = defineStore('session', () => {
       session.isStarting = false
       session.frameSrc = ''
       session.manualControl = false
+      session.targetUrl = DEFAULT_TARGET_URL
+      session.liveUrl = DEFAULT_TARGET_URL
     })
   }
 
@@ -244,11 +252,24 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  const toggleManualControl = async () => {
-    const session = activeSession.value
-    if (!session) return
-    session.manualControl = !session.manualControl
+const findSession = (sessionId) => {
+  if (!sessionId) return activeSession.value
+  return tabs.value.find((tab) => tab.id === sessionId)
+}
+
+const toggleManualControl = async (sessionId) => {
+  const session = findSession(sessionId)
+  if (!session) return
+  session.manualControl = !session.manualControl
+}
+
+const updateManualUrl = (sessionId, url) => {
+  const target = findSession(sessionId)
+  if (!target) return
+  if (typeof url === 'string' && url.trim()) {
+    target.liveUrl = url.trim()
   }
+}
 
   const handleStatusUpdate = (payload) => {
     const { sessionId, status, captureStatus, log } = payload ?? {}
@@ -300,6 +321,7 @@ export const useSessionStore = defineStore('session', () => {
     clearSessionData,
     setFrameSource,
     toggleManualControl,
+    updateManualUrl,
     DEFAULT_TARGET_URL,
   }
 })
