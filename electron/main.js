@@ -13,7 +13,6 @@ app.commandLine.appendSwitch('ignore-certificate-errors');
 app.commandLine.appendSwitch('allow-insecure-localhost');
 
 let mainWindow;
-const sessionViews = new Map();
 const goBridge = new GoBridge();
 const sessionManager = new SessionManager();
 const patchedSessions = new WeakSet();
@@ -235,10 +234,6 @@ ipcMain.handle('agent:createSessionId', () => goBridge.request('create-session-i
 ipcMain.handle('agent:startSession', (_event, payload) => sessionManager.startSession(payload));
 ipcMain.handle('agent:stopSession', (_event, payload) => sessionManager.stopSession(payload));
 ipcMain.handle('agent:sendPrompt', (_event, payload) => goBridge.request('send-prompt', payload));
-ipcMain.handle('session:viewAttached', (_event, payload) => {
-  sessionViews.set(payload.sessionId, payload);
-  return { status: 'ok' };
-});
 ipcMain.handle('agent:selectContextFolders', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Select folders for Khanzuo context',

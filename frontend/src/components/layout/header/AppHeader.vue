@@ -98,10 +98,6 @@ const openSettings = () => {
             <span class="material-symbols-outlined text-[20px]">settings</span>
           </button>
         </div>
-        <div class="relative">
-          <div class="rounded-full size-9 border-2 border-[#233348] bg-gradient-to-br from-purple-500 to-indigo-500"></div>
-          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#111822] rounded-full"></span>
-        </div>
       </div>
     </header>
 </template>
