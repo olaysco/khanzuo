@@ -41,6 +41,8 @@ contextBridge.exposeInMainWorld('khanzuo', {
   sendPrompt: (payload) => ipcRenderer.invoke('agent:sendPrompt', payload),
   selectContextFolders: () => ipcRenderer.invoke('agent:selectContextFolders'),
   readContextFile: (payload) => ipcRenderer.invoke('agent:readContextFile', payload),
+  routerDecision: (payload) => ipcRenderer.invoke('agent:routerDecision', payload),
+  setAgentBinaries: (paths) => ipcRenderer.invoke('agent:setAgentBinaries', { paths }),
   attachSessionView: (elementId, sessionId) => attachSessionView(elementId, sessionId),
   onStatus: buildEventBridge('session:status'),
   onAgentLog: buildEventBridge('agent:log'),

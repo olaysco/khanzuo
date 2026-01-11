@@ -13,6 +13,7 @@ import {
   NTag,
   NButton,
   NIcon,
+  NInput,
 } from 'naive-ui'
 import {
   CloseOutline,
@@ -37,6 +38,10 @@ const props = defineProps({
   agent: {
     type: String,
     default: 'codex',
+  },
+  agentPaths: {
+    type: Object,
+    default: () => ({}),
   },
   languageOptions: {
     type: Array,
@@ -64,6 +69,14 @@ const fallbackThemeOptions = [
 ]
 
 const agentIds = ['codex', 'gemini', 'claude']
+const baseAgentPaths = agentIds.reduce((acc, id) => {
+  acc[id] = ''
+  return acc
+}, {})
+const initializeAgentPaths = (paths) => ({
+  ...baseAgentPaths,
+  ...(paths ?? {}),
+})
 
 const themeIconMap = {
   light: SunnyOutline,
@@ -89,13 +102,20 @@ const formState = ref({
   language: props.language,
   theme: props.theme,
   agent: props.agent,
+  agentPaths: initializeAgentPaths(props.agentPaths),
 })
 
 watch(
-  () => [props.language, props.theme, props.agent],
-  ([language, theme, agent]) => {
-    formState.value = { language, theme, agent }
+  () => [props.language, props.theme, props.agent, props.agentPaths],
+  ([language, theme, agent, agentPaths]) => {
+    formState.value = {
+      language,
+      theme,
+      agent,
+      agentPaths: initializeAgentPaths(agentPaths),
+    }
   },
+  { deep: true },
 )
 
 const translateOptional = (key) => {
@@ -120,24 +140,51 @@ const agentOptions = computed(() =>
   })),
 )
 
-const readBodyBackground = () => {
-  if (typeof window === 'undefined') return ''
-  const value = getComputedStyle(document.body).getPropertyValue('--body-background')
-  return value?.trim()
+const readDocumentTheme = () => {
+  if (typeof window === 'undefined') return 'light'
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+}
+
+const paletteByTheme = (mode) => {
+  if (mode === 'dark') {
+    return {
+      surface: '#111822',
+      panel: '#192433',
+      panelActive: '#1d2939',
+      border: '#233348',
+      muted: '#92a9c9',
+      strong: '#f8fbff',
+      accent: '#2b7cee',
+      accentSoft: 'rgba(43, 124, 238, 0.12)',
+      dangerBorder: '#5f1933',
+    }
+  }
+  return {
+    surface: '#f6f7f8',
+    panel: '#ffffff',
+    panelActive: '#e8eef7',
+    border: '#d7dee8',
+    muted: '#475569',
+    strong: '#0f172a',
+    accent: '#2563eb',
+    accentSoft: 'rgba(37, 99, 235, 0.12)',
+    dangerBorder: '#fca5a5',
+  }
 }
 
 const modalThemeVars = computed(() => {
-  const vars = themeVars?.value ?? {}
-  const fallbackSurface = vars.modalColor || vars.cardColor || '#0b1320'
-  const appSurface = readBodyBackground() || fallbackSurface
-
+  const mode = readDocumentTheme()
+  const palette = paletteByTheme(mode)
   return {
-    '--settings-surface': appSurface,
-    '--settings-border': vars.dividerColor || 'rgba(255, 255, 255, 0.08)',
-    '--settings-muted': vars.textColor3 || 'rgba(248, 251, 255, 0.65)',
-    '--settings-strong': vars.textColor1 || '#f8fbff',
-    '--settings-accent': vars.primaryColor || '#4098ff',
-    '--settings-accent-soft': vars.primaryColorHover || 'rgba(64, 152, 255, 0.15)',
+    '--settings-surface': palette.surface,
+    '--settings-panel': palette.panel,
+    '--settings-panel-active': palette.panelActive,
+    '--settings-border': palette.border,
+    '--settings-muted': palette.muted,
+    '--settings-strong': palette.strong,
+    '--settings-accent': palette.accent,
+    '--settings-accent-soft': palette.accentSoft,
+    '--settings-danger-border': palette.dangerBorder,
   }
 })
 
@@ -154,7 +201,10 @@ const handleClearData = () => {
 }
 
 const handleSave = () => {
-  emit('save', { ...formState.value })
+  emit('save', {
+    ...formState.value,
+    agentPaths: { ...(formState.value.agentPaths ?? {}) },
+  })
 }
 </script>
 
@@ -230,6 +280,21 @@ const handleSave = () => {
                     </n-tag>
                   </div>
                   <p class="agent-description">{{ agent.description }}</p>
+                  <div class="agent-path-group" @click.stop>
+                    <label class="agent-path-label" :for="`agent-path-${agent.id}`">
+                      {{ t('ui.settings.agentInstallPath') }}
+                    </label>
+                    <div class="agent-path-input">
+                      <n-input
+                        :id="`agent-path-${agent.id}`"
+                        v-model:value="formState.agentPaths[agent.id]"
+                        :placeholder="t('ui.settings.agentInstallPlaceholder')"
+                        :disabled="formState.agent !== agent.id"
+                        size="small"
+                      />
+                    </div>
+                    <p class="agent-path-hint">{{ t('ui.settings.agentInstallHint') }}</p>
+                  </div>
                 </div>
                 <span class="radio-indicator" aria-hidden="true">
                   <span />
@@ -291,6 +356,7 @@ const handleSave = () => {
   border: 1px solid var(--settings-border);
   border-radius: 26px;
   width: 600px;
+  color: var(--settings-strong);
 }
 
 .dialog-header {
@@ -391,7 +457,7 @@ const handleSave = () => {
   padding: 0.4rem;
   border-radius: 14px;
   border: 1px solid var(--settings-border);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--settings-panel);
 }
 
 .theme-group :deep(.n-radio) {
@@ -415,7 +481,7 @@ const handleSave = () => {
 
 .theme-chip {
   border: 1px solid transparent;
-  background: transparent;
+  background: var(--settings-panel);
   border-radius: 12px;
   padding: 0.6rem 0.75rem;
   display: flex;
@@ -500,6 +566,7 @@ const handleSave = () => {
 
 .agent-card:hover {
   border-color: var(--settings-accent);
+  background: var(--settings-panel-active);
 }
 
 .agent-card.active {
@@ -549,6 +616,37 @@ const handleSave = () => {
   font-size: 0.92rem;
 }
 
+.agent-path-group {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.agent-path-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--settings-muted);
+}
+
+.agent-path-input {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.agent-path-input :deep(.n-input) {
+  flex: 1;
+  --n-border-radius: 10px;
+}
+
+.agent-path-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--settings-muted);
+}
+
 .agent-badge {
   text-transform: uppercase;
 }
@@ -586,7 +684,7 @@ const handleSave = () => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--settings-panel);
 }
 
 .data-title {
@@ -599,6 +697,13 @@ const handleSave = () => {
   margin: 0.25rem 0 0;
   color: var(--settings-muted);
   font-size: 0.9rem;
+}
+
+.danger-button {
+  border-radius: 12px;
+  border: 1px solid var(--settings-danger-border);
+  background: rgba(244, 63, 94, 0.15);
+  color: #fecdd3;
 }
 
 .dialog-header:nth-child(1) {

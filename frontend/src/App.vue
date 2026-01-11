@@ -11,7 +11,7 @@ import { useSessionStore, DEFAULT_TARGET_URL } from '@/stores/sessionStore.js'
 const { t, locale } = useI18n()
 const osTheme = useOsTheme()
 const sessionStore = useSessionStore()
-const { tabs, activeTabId, activeSession, activePromptValue } = storeToRefs(sessionStore)
+const { tabs, activeTabId, activeSession, activePromptValue, agentPreferences } = storeToRefs(sessionStore)
 
 const themePreference = ref('dark')
 const selectedLanguage = ref('en-us')
@@ -70,8 +70,8 @@ const handleStopSession = () => {
   ])
 }
 
-const handlePromptSend = () => {
-  sessionStore.processPrompt()
+const handlePromptSend = async () => {
+  await sessionStore.processPrompt()
 }
 
 const handleManualToggle = (sessionId) => {
@@ -98,6 +98,7 @@ const closeSettings = () => (showSettings.value = false)
 const handleSettingsSave = (settings) => {
   themePreference.value = settings.theme
   selectedLanguage.value = settings.language
+  sessionStore.setAgentPreferences({ agent: settings.agent, paths: settings.agentPaths })
   closeSettings()
 }
 
@@ -341,7 +342,8 @@ onBeforeUnmount(() => {
       v-if="showSettings"
       :language="selectedLanguage"
       :theme="themePreference"
-      :agent="'codex'"
+      :agent="agentPreferences?.selected ?? 'codex'"
+      :agent-paths="agentPreferences?.paths ?? {}"
       :language-options="[]"
       :theme-options="[]"
       @close="closeSettings"

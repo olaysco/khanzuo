@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, session, dialog } = require('electron');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const { execFile } = require('child_process');
 const GoBridge = require('./goBridge');
 const SessionManager = require('./sessionManager');
 
@@ -16,6 +17,11 @@ const sessionViews = new Map();
 const goBridge = new GoBridge();
 const sessionManager = new SessionManager();
 const patchedSessions = new WeakSet();
+const agentBinaryPaths = {
+  codex: process.env.CODEX_BIN || '/usr/local/bin/codex',
+  gemini: '',
+  claude: '',
+};
 
 function summarizeFolder(folderPath) {
   try {
@@ -67,6 +73,91 @@ function resolveChildPath(root, relativePath) {
     throw new Error('Path escapes selected folder');
   }
   return target;
+}
+
+function buildRouterPrompt(payload = {}) {
+  const prompt = payload.prompt?.trim() ?? '';
+  const folders = Array.isArray(payload.contextFolders) ? payload.contextFolders : [];
+  const folderSummaries = folders
+    .map((folder, index) => {
+      const lines = [
+        `Folder ${index + 1}: ${folder.name ?? 'unknown'}`,
+        `Path: ${folder.path ?? 'n/a'}`,
+        `Summary: ${folder.summary ?? 'n/a'}`,
+      ];
+      if (folder.preview) {
+        const dirs = folder.preview.directories?.length ? folder.preview.directories.join(', ') : 'none';
+        const files = folder.preview.files?.length ? folder.preview.files.join(', ') : 'none';
+        lines.push(`Preview directories: ${dirs}`);
+        lines.push(`Preview files: ${files}`);
+      }
+      return lines.join('\n');
+    })
+    .join('\n\n');
+
+  return `You are the Khanzuo routing planner. Analyze the user's instructions and attached folders.
+Decide which intent best fits: "ui_repro" (automated UI reproduction), "code_analysis" (inspect code only), or "hybrid" (UI first, then code).
+Return JSON only in the format:
+{
+  "intent": "ui_repro" | "code_analysis" | "hybrid",
+  "summary": "short description",
+  "plan": [
+    { "title": "Step title", "detail": "action details" }
+  ]
+}
+Limit the plan to 3-6 steps. Do not include any commentary outside the JSON.
+
+User Prompt:\n${prompt}
+
+Context Folders:\n${folderSummaries || 'none provided'}
+`;
+}
+
+function parseRouterResponse(output = '') {
+  const firstBrace = output.indexOf('{');
+  const lastBrace = output.lastIndexOf('}');
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    throw new Error('Router response missing JSON payload');
+  }
+  const jsonText = output.slice(firstBrace, lastBrace + 1);
+  return JSON.parse(jsonText);
+}
+
+async function runCodexRouter(payload = {}) {
+  const prompt = buildRouterPrompt(payload);
+  const agent = typeof payload.agent === 'string' ? payload.agent : 'codex';
+  const customCommand = typeof payload?.binaryPath === 'string' ? payload.binaryPath.trim() : '';
+  const fallbackCommand = agentBinaryPaths[agent] || process.env.CODEX_BIN;
+  const command = customCommand || fallbackCommand || '/usr/local/bin/codex';
+  if (!command) {
+    throw new Error('No executable configured for selected agent. Update Settings.');
+  }
+  if (!fs.existsSync(command)) {
+    throw new Error(`Agent binary not found at ${command}. Update the path in Settings.`);
+  }
+  const defaultArgs = process.env.CODEX_ARGS ? process.env.CODEX_ARGS.split(' ').filter(Boolean) : [];
+  const args = [...defaultArgs, prompt];
+  return new Promise((resolve, reject) => {
+    execFile(
+      command,
+      args,
+      { env: { ...process.env }, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          const details = stderr?.trim() || stdout?.trim() || error.message;
+          reject(new Error(`Codex router failed: ${details}`));
+          return;
+        }
+        try {
+          const parsed = parseRouterResponse(stdout?.toString() ?? '');
+          if (!parsed.decidedAt) parsed.decidedAt = new Date().toISOString();
+          resolve(parsed);
+        } catch (parseError) {
+          reject(new Error(`Router output invalid JSON: ${parseError.message}`));
+        }
+      },
+    );
+  });
 }
 
 function allowCertificatesForSession(targetSession) {
@@ -171,6 +262,23 @@ ipcMain.handle('agent:readContextFile', async (_event, payload = {}) => {
     content: truncated ? data.slice(0, maxBytes) : data,
     truncated,
   };
+});
+ipcMain.handle('agent:routerDecision', async (_event, payload) => {
+  try {
+    return await runCodexRouter(payload);
+  } catch (error) {
+    console.error('[router] failed to run Codex router', error);
+    throw error;
+  }
+});
+ipcMain.handle('agent:setAgentBinaries', (_event, payload = {}) => {
+  const paths = (payload.paths ?? payload) || {};
+  Object.keys(paths).forEach((key) => {
+    if (typeof paths[key] === 'string') {
+      agentBinaryPaths[key] = paths[key].trim()
+    }
+  });
+  return agentBinaryPaths;
 });
 
 // Proxy agent events to renderer

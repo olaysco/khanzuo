@@ -1,6 +1,5 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { buildRouterDecision } from '@/utils/agentRouter.js'
 
 export const DEFAULT_TARGET_URL = 'https://openprovider.eu'
 
@@ -46,6 +45,33 @@ const resetRouterState = (session) => {
   if (!session) return
   session.routerState = createRouterState()
 }
+const createPlanStep = (payload = {}) => ({
+  id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+  title: payload.title ?? 'Step',
+  detail: payload.detail ?? '',
+  status: payload.status ?? 'pending',
+})
+const applyRouterDecision = (session, decision = {}) => {
+  if (!session) return
+  const steps = Array.isArray(decision.plan)
+    ? decision.plan.slice(0, 8).map((step) => createPlanStep(step))
+    : []
+  session.routerState = {
+    intent: decision.intent ?? 'idle',
+    summary: decision.summary ?? '',
+    plan: steps,
+    decidedAt: decision.decidedAt ?? new Date().toISOString(),
+    status: decision.status ?? 'planned',
+  }
+}
+const createDefaultAgentPreferences = () => ({
+  selected: 'codex',
+  paths: {
+    codex: '/usr/local/bin/codex',
+    gemini: '',
+    claude: '',
+  },
+})
 
 
 export const useSessionStore = defineStore('session', () => {
@@ -53,6 +79,7 @@ export const useSessionStore = defineStore('session', () => {
     createSession(createSessionId(), 'Session 1'),
   ])
   const activeTabId = ref(tabs.value[0].id)
+  const agentPreferences = ref(createDefaultAgentPreferences())
   const bridge = getBridge()
   let frameListenerOff = null
   let statusListenerOff = null
@@ -153,6 +180,24 @@ const updateTargetUrl = (value) => {
       added += 1
     })
     return added
+  }
+
+  const setAgentPreferences = (payload = {}) => {
+    const selected = typeof payload.agent === 'string' ? payload.agent : agentPreferences.value.selected
+    const nextPaths = {
+      ...agentPreferences.value.paths,
+      ...(payload.paths ?? {}),
+    }
+    agentPreferences.value = {
+      selected,
+      paths: nextPaths,
+    }
+    if (bridge && typeof bridge.setAgentBinaries === 'function') {
+      const plainPaths = JSON.parse(JSON.stringify(nextPaths))
+      bridge.setAgentBinaries({ paths: plainPaths }).catch((error) => {
+        console.error('[settings] Failed to sync agent binaries', error)
+      })
+    }
   }
 
   const selectContextFolders = async () => {
@@ -283,7 +328,7 @@ const updateTargetUrl = (value) => {
     logPayloads.forEach((payload) => addLogToSession(session, payload))
   }
 
-  const processPrompt = () => {
+  const processPrompt = async () => {
     const session = activeSession.value
     if (!session) return false
     const text = session.promptValue.trim()
@@ -294,18 +339,32 @@ const updateTargetUrl = (value) => {
       status: 'info',
     })
     session.promptValue = ''
-    try {
-      const decision = buildRouterDecision({
-        prompt: text,
-        contextFolders: session.contextFolders ?? [],
+    session.routerState = {
+      ...session.routerState,
+      status: 'routing',
+    }
+    if (!bridge || typeof bridge.routerDecision !== 'function') {
+      addLogToSession(session, {
+        status: 'error',
+        title: 'Router unavailable',
+        detail: 'Desktop bridge missing routerDecision API.',
       })
-      session.routerState = {
-        ...decision,
-        status: 'planned',
-        plan: Array.isArray(decision.plan)
-          ? decision.plan.map((step) => ({ ...step, status: step.status ?? 'pending' }))
-          : [],
-      }
+      session.routerState.status = 'error'
+      return false
+    }
+    try {
+      const contextFolders = Array.isArray(session.contextFolders)
+        ? JSON.parse(JSON.stringify(session.contextFolders))
+        : []
+      const selectedAgent = agentPreferences.value?.selected ?? 'codex'
+      const paths = agentPreferences.value?.paths ?? {}
+      const decision = await bridge.routerDecision({
+        prompt: text,
+        contextFolders,
+        agent: selectedAgent,
+        binaryPath: paths[selectedAgent] ?? '',
+      })
+      applyRouterDecision(session, decision)
       addLogToSession(session, {
         status: 'success',
         title: `Planned intent: ${decision.intent}`,
@@ -313,6 +372,7 @@ const updateTargetUrl = (value) => {
       })
       return decision
     } catch (error) {
+      session.routerState.status = 'error'
       addLogToSession(session, {
         status: 'error',
         title: 'Router planning failed',
@@ -420,12 +480,17 @@ const updateTargetUrl = (value) => {
   }
 
   registerBridgeListeners()
+  if (bridge && typeof bridge.setAgentBinaries === 'function') {
+    const plainPaths = JSON.parse(JSON.stringify(agentPreferences.value.paths))
+    bridge.setAgentBinaries({ paths: plainPaths }).catch(() => {})
+  }
 
   return {
     tabs,
     activeTabId,
     activeSession,
     activePromptValue,
+    agentPreferences,
     setActiveTab,
     addTab,
     renameTab,
@@ -441,6 +506,7 @@ const updateTargetUrl = (value) => {
     updateManualUrl,
     selectContextFolders,
     removeContextFolder,
+    setAgentPreferences,
     DEFAULT_TARGET_URL,
   }
 })
