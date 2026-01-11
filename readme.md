@@ -4,6 +4,8 @@
 
 > If a human can experience the bug, Khanzuo can too.
 
+![](https://github.com/olaysco/khanzuo/blob/dev-electron/docs/mian_view_shot.png)
+
 ## Live Development
 
 1. Install frontend dependencies with `cd frontend && npm install` (run once)
