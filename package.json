@@ -1,11 +1,20 @@
 {
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.1.18",
-    "naive-ui": "^2.43.2",
-    "tailwindcss": "^4.1.18",
-    "vfonts": "^0.0.3"
+  "name": "khanzuo-shell",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:frontend\" \"npm:dev:electron\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:electron": "wait-on tcp:5173 && electron .",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd frontend && npm run build"
   },
   "dependencies": {
-    "vue-i18n": "^11.2.8"
+    "electron": "^31.0.0",
+    "playwright": "^1.45.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.0.1"
   }
 }

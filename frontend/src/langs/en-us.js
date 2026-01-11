@@ -71,6 +71,10 @@ export default {
       themeSwitchTo: 'Switch to {theme}',
       agentSelection: 'Coding Agent Selection',
       agentSelectionDescription: 'Choose the AI model used for automated bug reproduction and analysis.',
+      agentInstallPath: 'Installation Path',
+      agentInstallPlaceholder: 'Enter CLI path (e.g. /usr/local/bin/codex)',
+      agentInstallHint: 'Khanzuo will run this executable when routing tasks to the selected agent.',
+      agentBrowse: 'Browse',
       agents: {
         codex: {
           name: 'OpenAI Codex',

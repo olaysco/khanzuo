@@ -20,7 +20,6 @@ export default defineConfig({
     alias: {
         '@': rootPath + 'src',
         stores: rootPath + 'src/stores',
-        wailsjs: rootPath + 'wailsjs',
     },
   },
 

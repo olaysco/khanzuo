@@ -2,8 +2,6 @@ package session
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"khanzuo/internal/browser"
 )
@@ -16,46 +14,30 @@ type Session struct {
 	b *browser.Controller
 }
 
-func NewSession(sessionID string, url string, emit Emitters) *Session {
+func NewSession(sessionID string, url string, emit Emitters, ctrl *browser.Controller) *Session {
 	return &Session{
 		ID:   sessionID,
 		URL:  url,
 		emit: emit,
-		b:    browser.NewController(),
+		b:    ctrl,
 	}
 }
 
 func (s *Session) Start(ctx context.Context) error {
-	s.emit.Log("info", "Launching browser (Rod)")
+	s.emit.Log("info", "Preparing session view")
 	if err := s.b.Start(ctx); err != nil {
 		return fmt.Errorf("browser start: %w", err)
 	}
 
 	s.emit.Log("info", fmt.Sprintf("Navigating to %s", s.URL))
-	if err := s.b.Goto(s.URL); err != nil {
+	if err := s.b.Goto(ctx, s.URL); err != nil {
 		_ = s.b.Stop()
 		return fmt.Errorf("goto: %w", err)
 	}
-
-	// Capture initial frame
-	s.emit.Log("info", "Capturing initial frame")
-	frame, err := s.b.CaptureFrame()
-	if err != nil {
-		_ = s.b.Stop()
-		return fmt.Errorf("capture frame: %w", err)
-	}
-
-	s.emit.Frame(frame)
 	return nil
 }
 
 func (s *Session) Stop() error {
 	s.emit.Log("info", "Stopping session")
 	return s.b.Stop()
-}
-
-func newID() string {
-	var b [8]byte
-	_, _ = rand.Read(b[:])
-	return hex.EncodeToString(b[:])
 }

@@ -1,39 +1,19 @@
 <script setup>
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NInput, NDropdown, NText, NIcon } from 'naive-ui'
-import {
-  LinkOutline,
-  SunnyOutline,
-  GlobeOutline,
-  PlayOutline,
-  StopCircleOutline,
-} from '@vicons/ionicons5'
 
 const props = defineProps({
-  url: {
-    type: String,
-    default: '',
-  },
   status: {
     type: String,
     default: 'idle',
   },
-  theme: {
-    type: String,
-    default: 'dark',
-  },
-  language: {
-    type: String,
-    default: 'en-us',
-  },
-  themeOptions: {
+  tabs: {
     type: Array,
     default: () => [],
   },
-  languageOptions: {
-    type: Array,
-    default: () => [],
+  activeTabId: {
+    type: String,
+    default: '',
   },
   isStarting: {
     type: Boolean,
@@ -41,207 +21,83 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update:url', 'start', 'stop', 'update:theme', 'update:language'])
+const emit = defineEmits(['stop', 'select-tab', 'add-tab', 'open-settings'])
 const { t } = useI18n()
 
-const statusLabel = computed(() =>
-  props.status === 'idle' ? t('ui.nav.statusIdle') : t('ui.nav.statusRunning'),
-)
-
 const isRunning = computed(() => props.status !== 'idle')
-const primaryButtonLabel = computed(() =>
-  isRunning.value ? t('ui.nav.stop') : t('ui.nav.start'),
-)
-const primaryButtonType = computed(() => (isRunning.value ? 'error' : 'primary'))
-const primaryButtonIcon = computed(() => (isRunning.value ? StopCircleOutline : PlayOutline))
-
-const themeDropdown = computed(() =>
-  props.themeOptions.map((option) => ({ label: option.label, key: option.value })),
+const statusLabel = computed(() =>
+  isRunning.value ? t('ui.nav.statusRunning') : t('ui.nav.statusIdle'),
 )
 
-const languageDropdown = computed(() =>
-  props.languageOptions.map((option) => ({ label: option.label, key: option.value })),
-)
+const sessionTabs = computed(() => props.tabs ?? [])
+const activeTabId = computed(() => props.activeTabId ?? '')
+const isStopDisabled = computed(() => !isRunning.value || props.isStarting)
 
-const handleThemeChange = (value) => {
-  emit('update:theme', value)
+const handleTabSelect = (tabId) => {
+  emit('select-tab', tabId)
 }
 
-const handleLanguageChange = (value) => {
-  emit('update:language', value)
+const handleAddTab = () => {
+  emit('add-tab')
 }
 
-const handleUrlUpdate = (value) => {
-  emit('update:url', value)
+const handleStopSession = () => {
+  if (isStopDisabled.value) return
+  emit('stop')
 }
 
-const handlePrimaryAction = () => {
-  if (props.isStarting) return
-  emit(isRunning.value ? 'stop' : 'start')
+const openSettings = () => {
+  emit('open-settings')
 }
 </script>
 
 <template>
-  <header class="app-header">
-    <div class="brand">
-      <div class="brand-icon" />
-      <div>
-        <n-text strong>{{ t('ui.brand') }}</n-text>
-        <n-text depth="3" class="brand-sub">{{ t('ui.brandSubtitle') }}</n-text>
-      </div>
-    </div>
-    <div class="header-input">
-      <n-input
-        size="large"
-        round
-        :value="props.url"
-        :placeholder="t('ui.nav.urlPlaceholder')"
-        @update:value="handleUrlUpdate"
-      >
-        <template #prefix>
-          <n-icon size="18" class="prefix-icon">
-            <LinkOutline />
-          </n-icon>
-        </template>
-      </n-input>
-    </div>
-    <div class="header-controls">
-      <div class="actions">
-        <n-dropdown :options="themeDropdown" trigger="click" @select="handleThemeChange">
-          <n-button quaternary circle class="ghost-control">
-            <template #icon>
-              <n-icon>
-                <SunnyOutline />
-              </n-icon>
-            </template>
-          </n-button>
-        </n-dropdown>
-        <n-dropdown :options="languageDropdown" trigger="click" @select="handleLanguageChange">
-          <n-button quaternary circle class="ghost-control">
-            <template #icon>
-              <n-icon>
-                <GlobeOutline />
-              </n-icon>
-            </template>
-          </n-button>
-        </n-dropdown>
-        <div class="status-pill">
-          <span class="status-dot" :class="props.status" />
-          <n-text depth="3">{{ statusLabel }}</n-text>
+  <header class="flex-none flex items-center justify-between whitespace-nowrap border-b border-[#233348] px-6 py-3 bg-[#111822]">
+      <div class="flex items-center gap-8">
+        <div class="flex items-center gap-3 text-white">
+          <div class="size-8 flex items-center justify-center bg-primary/20 rounded-lg text-primary">
+            <span class="material-symbols-outlined">bug_report</span>
+          </div>
+          <div>
+            <h2 class="text-white text-lg font-bold leading-tight tracking-tight">{{ t('ui.brand') }}</h2>
+            <p class="text-xs text-white/60">{{ t('ui.brandSubtitle') }}</p>
+          </div>
         </div>
-        <n-button
-          :type="primaryButtonType"
-          size="large"
-          strong
-          class="start-button"
-          :loading="props.isStarting"
-          :disabled="props.isStarting"
-          @click="handlePrimaryAction"
-        >
-          <template #icon>
-            <n-icon>
-              <component :is="primaryButtonIcon" />
-            </n-icon>
-          </template>
-          {{ primaryButtonLabel }}
-        </n-button>
+        <nav class="flex items-center gap-1 bg-[#1a2636] p-1 rounded-lg">
+          <button
+            v-for="tab in sessionTabs"
+            :key="tab.id"
+            class="text-sm font-medium leading-normal px-3 py-1.5 rounded-md transition-colors"
+            :class="tab.id === activeTabId ? 'bg-[#233348] text-white shadow-sm flex items-center gap-2' : 'text-[#92a9c9] hover:text-white'"
+            @click="handleTabSelect(tab.id)"
+          >
+            <span v-if="tab.id === activeTabId" class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            {{ tab.title }}
+          </button>
+          <button class="text-[#92a9c9] hover:text-white text-sm font-medium px-3 py-1.5" @click="handleAddTab">
+            New Session (+)
+          </button>
+        </nav>
       </div>
-    </div>
-  </header>
+      <div class="flex items-center gap-4">
+        <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full" :class="{ 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400': !isRunning }">
+          <span class="material-symbols-outlined text-green-500 text-[16px] filled" :class="{ 'text-yellow-400': !isRunning }">bolt</span>
+          <span class="text-green-500 text-xs font-bold uppercase tracking-wider" :class="{ 'text-yellow-400': !isRunning }">{{ statusLabel }}</span>
+        </div>
+        <div class="flex gap-3">
+          <button
+            class="flex items-center justify-center gap-2 px-4 h-9 bg-red-600 text-white text-sm font-bold rounded-lg transition-colors"
+            :class="{ 'hover:bg-red-700': !isStopDisabled, 'opacity-50 cursor-not-allowed': isStopDisabled }"
+            :disabled="isStopDisabled"
+            @click="handleStopSession"
+          >
+            <span class="material-symbols-outlined text-[18px]">stop_circle</span>
+            <span>Stop Session</span>
+          </button>
+          <button class="flex items-center justify-center h-9 w-9 bg-[#233348] hover:bg-[#324867] text-white rounded-lg" @click="openSettings">
+            <span class="material-symbols-outlined text-[20px]">settings</span>
+          </button>
+        </div>
+      </div>
+    </header>
 </template>
-
-<style scoped>
-.app-header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 1.1rem 1.5rem 1rem;
-  background: var(--khz-surface-elevated);
-  border-bottom: 1px solid var(--khz-border-soft);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.brand-sub {
-  display: block;
-  font-size: 0.75rem;
-}
-
-.brand-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(140deg, #0f6cfc, #4098ff);
-  box-shadow: 0 8px 24px rgba(16, 108, 252, 0.35);
-}
-
-.header-input {
-  width: 100%;
-}
-
-.header-controls {
-  display: flex;
-  align-items: center;
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.ghost-control {
-  color: var(--khz-icon);
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.85rem;
-  background: var(--khz-pill-bg);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  color: var(--khz-text-muted);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #94a3b8;
-}
-
-.status-dot.idle {
-  background: #556078;
-}
-
-.status-dot.running {
-  background: #3b82f6;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
-}
-
-.start-button {
-  min-width: 160px;
-}
-
-.prefix-icon {
-  color: var(--khz-icon-soft);
-}
-
-@media (max-width: 1100px) {
-  .app-header {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .header-controls {
-    justify-content: flex-end;
-  }
-}
-</style>

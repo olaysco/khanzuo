@@ -3,74 +3,105 @@ package app
 import (
 	"context"
 	"fmt"
+	"khanzuo/internal/browser"
+	"khanzuo/internal/ipc"
 	"khanzuo/internal/session"
 	"khanzuo/internal/util"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// App struct
+func ErrUnknownCommand(cmd string) error {
+	return fmt.Errorf("unknown command: %s", cmd)
+}
+
 type App struct {
-	ctx context.Context
-	sm  *session.Manager
+	sm        *session.Manager
+	transport *ipc.Transport
 }
 
-// NewApp creates a new App application struct
-func NewApp() *App {
+func NewApp(tr *ipc.Transport) *App {
 	return &App{
-		sm: session.NewManager(),
+		sm:        session.NewManager(),
+		transport: tr,
 	}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
-func (a *App) Startup(ctx context.Context) {
-	a.ctx = ctx
+type CreateSessionResponse struct {
+	SessionID string `json:"sessionId"`
 }
 
-// Start Session begins a new investigation session instance and restusn the session ID
-func (a *App) StartSession(sessionID string, url string) (string, error) {
-	if a.ctx == nil {
-		return "", fmt.Errorf("app not initialized: Startup() not called yet")
+type StartSessionRequest struct {
+	SessionID string `json:"sessionId"`
+	URL       string `json:"url"`
+}
+
+type StartSessionResponse struct {
+	SessionID string `json:"sessionId"`
+}
+
+type StopSessionRequest struct {
+	SessionID string `json:"sessionId"`
+}
+
+type GenericAck struct {
+	Status string `json:"status"`
+}
+
+func (a *App) HandleCreateSessionID() (any, error) {
+	return CreateSessionResponse{SessionID: a.CreateSessionID()}, nil
+}
+
+func (a *App) HandleStartSession(ctx context.Context, msg ipc.Message) (any, error) {
+	var payload StartSessionRequest
+	if err := msg.DecodePayload(&payload); err != nil {
+		return nil, err
 	}
-	if url == "" {
-		return "", fmt.Errorf("url is required")
+	if payload.SessionID == "" {
+		payload.SessionID = a.CreateSessionID()
+	}
+	if payload.URL == "" {
+		return nil, fmt.Errorf("url is required")
 	}
 
-	// UI feedback early
-	runtime.EventsEmit(a.ctx, "session:status", "Starting")
-	runtime.EventsEmit(a.ctx, "agent:log", fmt.Sprintf("Starting session for %s", url))
+	a.emitStatus(payload.SessionID, "Starting")
+	a.emitLog(payload.SessionID, "info", fmt.Sprintf("Starting session for %s", payload.URL))
 
-	// Create / replace the current session
-	sess, err := a.sm.Start(a.ctx, sessionID, url, a.emitters(sessionID))
+	controller := browser.NewController(payload.SessionID, a.transport)
+	_, err := a.sm.Start(ctx, payload.SessionID, payload.URL, a.emitters(payload.SessionID), controller)
 	if err != nil {
-		runtime.EventsEmit(a.ctx, "session:status", "Error")
-		runtime.EventsEmit(a.ctx, "agent:log", fmt.Sprintf("Failed to start session: %v", err))
-		return "", err
+		a.emitStatus(payload.SessionID, "Error")
+		a.emitLog(payload.SessionID, "error", fmt.Sprintf("Failed to start session: %v", err))
+		return nil, err
 	}
 
-	runtime.EventsEmit(a.ctx, "session:status", "Ready")
-	runtime.EventsEmit(a.ctx, "agent:log", "Session ready")
+	a.emitStatus(payload.SessionID, "Ready")
+	a.emitLog(payload.SessionID, "info", "Session ready")
 
-	return sess.ID, nil
+	return StartSessionResponse{SessionID: payload.SessionID}, nil
 }
 
-// Send Prompt passes the prompt to interact with the current session
-func (a *App) SendPrompt() {
-	panic("not yet implemented")
+func (a *App) HandleStopSession(msg ipc.Message) (any, error) {
+	var payload StopSessionRequest
+	if err := msg.DecodePayload(&payload); err != nil {
+		return nil, err
+	}
+	if payload.SessionID == "" {
+		return nil, fmt.Errorf("sessionId is required")
+	}
+	if err := a.sm.Stop(payload.SessionID); err != nil {
+		return nil, err
+	}
+	a.emitStatus(payload.SessionID, "Idle")
+	return GenericAck{Status: "ok"}, nil
 }
 
-// Stop Session terminates the current session and ongion agent tasks
-func (a *App) StopSession() {
-	panic("not yet implemented")
+func (a *App) HandleSendPrompt(msg ipc.Message) (any, error) {
+	return nil, fmt.Errorf("send prompt not implemented")
 }
 
-// Export bundle returns debugging session asa formatted JSON
-func (a *App) ExportBundle() {
-	panic("not yet implemented")
+func (a *App) HandleExportBundle(msg ipc.Message) (any, error) {
+	return nil, fmt.Errorf("export bundle not implemented")
 }
 
-// CreateSessionID generates a new session ID for the frontend to use.
 func (a *App) CreateSessionID() string {
 	for {
 		id := util.NewID()
@@ -78,9 +109,4 @@ func (a *App) CreateSessionID() string {
 			return id
 		}
 	}
-}
-
-// emit is an adapter passed down to session layer to publish UI events.
-func (a *App) emit(event string, payload any) {
-	runtime.EventsEmit(a.ctx, event, payload)
 }

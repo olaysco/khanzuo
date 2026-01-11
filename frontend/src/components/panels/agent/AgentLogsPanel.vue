@@ -31,18 +31,6 @@ const handleRefresh = () => {
 
 <template>
   <section class="agent-logs">
-    <div class="panel-header">
-      <n-text depth="2">{{ t('ui.logs.title') }}</n-text>
-      <div class="panel-actions">
-        <n-button quaternary circle size="medium" @click="handleRefresh">
-          <template #icon>
-            <n-icon :class="{ spinning: props.isSyncing }">
-              <RefreshOutline />
-            </n-icon>
-          </template>
-        </n-button>
-      </div>
-    </div>
     <n-card class="logs-card" embedded>
       <n-scrollbar class="logs-scroll">
         <div v-if="orderedLogs.length" class="logs-list">

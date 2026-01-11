@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { NButton, NIcon, NInput } from 'naive-ui'
-import { AddOutline, CreateOutline } from '@vicons/ionicons5'
+import { AddOutline, CreateOutline, CloseOutline } from '@vicons/ionicons5'
 
 const props = defineProps({
   tabs: {
@@ -14,7 +14,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['select', 'add', 'rename'])
+const emit = defineEmits(['select', 'add', 'rename', 'close'])
 
 const orderedTabs = computed(() => props.tabs)
 const editingTabId = ref(null)
@@ -48,6 +48,10 @@ const submitEditing = () => {
   emit('rename', { id: editingTabId.value, title })
   cancelEditing()
 }
+
+const handleClose = (id) => {
+  emit('close', id)
+}
 </script>
 
 <template>
@@ -72,6 +76,16 @@ const submitEditing = () => {
           >
             <n-icon size="14">
               <CreateOutline />
+            </n-icon>
+          </button>
+          <button
+            type="button"
+            class="tab-close"
+            aria-label="Close session"
+            @click.stop="handleClose(tab.id)"
+          >
+            <n-icon size="14">
+              <CloseOutline />
             </n-icon>
           </button>
         </div>
@@ -135,7 +149,8 @@ const submitEditing = () => {
   gap: 0.3rem;
 }
 
-.tab-edit {
+.tab-edit,
+.tab-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -149,11 +164,13 @@ const submitEditing = () => {
   transition: color 0.2s ease, background 0.2s ease;
 }
 
-.tab-item.active .tab-edit {
+.tab-item.active .tab-edit,
+.tab-item.active .tab-close {
   color: var(--khz-icon);
 }
 
-.tab-edit:hover {
+.tab-edit:hover,
+.tab-close:hover {
   color: var(--khz-text);
   background: rgba(255, 255, 255, 0.1);
 }
