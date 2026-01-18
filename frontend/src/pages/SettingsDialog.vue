@@ -1,8 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
 import {
-  useThemeVars,
   NModal,
   NCard,
   NForm,
@@ -10,7 +8,6 @@ import {
   NSelect,
   NRadioGroup,
   NRadio,
-  NTag,
   NButton,
   NIcon,
   NInput,
@@ -20,125 +17,135 @@ import {
   SunnyOutline,
   MoonOutline,
   LaptopOutline,
+  CloudOutline,
+  ServerOutline,
   CodeSlashOutline,
-  SparklesOutline,
-  GitMergeOutline,
+  LinkOutline,
   TrashOutline,
 } from '@vicons/ionicons5'
 
 const props = defineProps({
-  language: {
-    type: String,
-    default: 'en-us',
-  },
   theme: {
     type: String,
     default: 'dark',
   },
-  agent: {
-    type: String,
-    default: 'codex',
-  },
-  agentPaths: {
+  llmConfig: {
     type: Object,
-    default: () => ({}),
-  },
-  languageOptions: {
-    type: Array,
-    default: () => [],
-  },
-  themeOptions: {
-    type: Array,
-    default: () => [],
+    default: () => ({
+      provider: 'openai',
+      apiKey: '',
+      model: 'gpt-4o-mini',
+      endpoint: '',
+      ollamaModel: 'llama3.2',
+    }),
   },
 })
 
 const emit = defineEmits(['close', 'cancel', 'save', 'clear-data'])
 
-const { t } = useI18n()
-const themeVars = useThemeVars()
-
-const fallbackLanguageOptions = [
-  { label: 'English (United States)', value: 'en-us' },
+const themeOptions = [
+  { label: 'Dark', value: 'dark', icon: MoonOutline },
+  { label: 'Light', value: 'light', icon: SunnyOutline },
+  { label: 'System', value: 'auto', icon: LaptopOutline },
 ]
 
-const fallbackThemeOptions = [
-  { label: 'Dark', value: 'dark' },
-  { label: 'Light', value: 'light' },
-  { label: 'System', value: 'auto' },
+const providerOptions = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    description: 'GPT-4o, GPT-4o-mini, etc.',
+    icon: CloudOutline,
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    description: 'Claude 3.5 Sonnet, Claude 3 Opus, etc.',
+    icon: CodeSlashOutline,
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama',
+    description: 'Local models (Llama, Mistral, etc.)',
+    icon: ServerOutline,
+  },
+  {
+    id: 'custom',
+    name: 'Custom Endpoint',
+    description: 'OpenAI-compatible API endpoint',
+    icon: LinkOutline,
+  },
 ]
 
-const agentIds = ['codex', 'gemini', 'claude']
-const baseAgentPaths = agentIds.reduce((acc, id) => {
-  acc[id] = ''
-  return acc
-}, {})
-const initializeAgentPaths = (paths) => ({
-  ...baseAgentPaths,
-  ...(paths ?? {}),
-})
+const openaiModels = [
+  { label: 'GPT-4o Mini (Recommended)', value: 'gpt-4o-mini' },
+  { label: 'GPT-4o', value: 'gpt-4o' },
+  { label: 'GPT-4 Turbo', value: 'gpt-4-turbo' },
+]
 
-const themeIconMap = {
-  light: SunnyOutline,
-  dark: MoonOutline,
-  auto: LaptopOutline,
-}
+const anthropicModels = [
+  { label: 'Claude 3.5 Sonnet (Recommended)', value: 'claude-3-5-sonnet-20241022' },
+  { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229' },
+  { label: 'Claude 3 Haiku', value: 'claude-3-haiku-20240307' },
+]
 
-const agentIconMap = {
-  codex: CodeSlashOutline,
-  gemini: SparklesOutline,
-  claude: GitMergeOutline,
-}
-
-const resolvedLanguageOptions = computed(() =>
-  props.languageOptions?.length ? props.languageOptions : fallbackLanguageOptions,
-)
-
-const resolvedThemeOptions = computed(() =>
-  props.themeOptions?.length ? props.themeOptions : fallbackThemeOptions,
-)
+const ollamaModels = [
+  { label: 'Llama 3.2 (Recommended)', value: 'llama3.2' },
+  { label: 'Llama 3.1', value: 'llama3.1' },
+  { label: 'Mistral', value: 'mistral' },
+  { label: 'CodeLlama', value: 'codellama' },
+]
 
 const formState = ref({
-  language: props.language,
   theme: props.theme,
-  agent: props.agent,
-  agentPaths: initializeAgentPaths(props.agentPaths),
+  llmConfig: { ...props.llmConfig },
 })
 
 watch(
-  () => [props.language, props.theme, props.agent, props.agentPaths],
-  ([language, theme, agent, agentPaths]) => {
+  () => [props.theme, props.llmConfig],
+  ([theme, llmConfig]) => {
     formState.value = {
-      language,
       theme,
-      agent,
-      agentPaths: initializeAgentPaths(agentPaths),
+      llmConfig: { ...llmConfig },
     }
   },
   { deep: true },
 )
 
-const translateOptional = (key) => {
-  const value = t(key)
-  return value === key ? '' : value
-}
+const currentModelOptions = computed(() => {
+  switch (formState.value.llmConfig.provider) {
+    case 'openai':
+      return openaiModels
+    case 'anthropic':
+      return anthropicModels
+    case 'ollama':
+      return ollamaModels
+    default:
+      return openaiModels
+  }
+})
 
-const themeControls = computed(() =>
-  resolvedThemeOptions.value.map((option) => ({
-    ...option,
-    icon: themeIconMap[option.value] ?? SunnyOutline,
-  })),
+const showApiKeyField = computed(() =>
+  ['openai', 'anthropic', 'custom'].includes(formState.value.llmConfig.provider)
 )
 
-const agentOptions = computed(() =>
-  agentIds.map((id) => ({
-    id,
-    name: t(`ui.settings.agents.${id}.name`),
-    description: t(`ui.settings.agents.${id}.description`),
-    badge: translateOptional(`ui.settings.agents.${id}.badge`),
-    icon: agentIconMap[id] ?? CodeSlashOutline,
-  })),
+const showEndpointField = computed(() =>
+  formState.value.llmConfig.provider === 'custom'
 )
+
+const showModelSelect = computed(() =>
+  formState.value.llmConfig.provider !== 'custom'
+)
+
+const apiKeyPlaceholder = computed(() => {
+  switch (formState.value.llmConfig.provider) {
+    case 'openai':
+      return 'sk-...'
+    case 'anthropic':
+      return 'sk-ant-...'
+    default:
+      return 'Enter API key...'
+  }
+})
 
 const readDocumentTheme = () => {
   if (typeof window === 'undefined') return 'light'
@@ -188,23 +195,27 @@ const modalThemeVars = computed(() => {
   }
 })
 
-const handleCancel = () => {
-  emit('cancel')
-}
-
-const handleClose = () => {
-  emit('close')
-}
-
-const handleClearData = () => {
-  emit('clear-data')
-}
+const handleCancel = () => emit('cancel')
+const handleClose = () => emit('close')
+const handleClearData = () => emit('clear-data')
 
 const handleSave = () => {
   emit('save', {
-    ...formState.value,
-    agentPaths: { ...(formState.value.agentPaths ?? {}) },
+    theme: formState.value.theme,
+    llmConfig: { ...formState.value.llmConfig },
   })
+}
+
+const handleProviderChange = (provider) => {
+  formState.value.llmConfig.provider = provider
+  // Set default model for the provider
+  if (provider === 'openai') {
+    formState.value.llmConfig.model = 'gpt-4o-mini'
+  } else if (provider === 'anthropic') {
+    formState.value.llmConfig.model = 'claude-3-5-sonnet-20241022'
+  } else if (provider === 'ollama') {
+    formState.value.llmConfig.model = 'llama3.2'
+  }
 }
 </script>
 
@@ -213,13 +224,13 @@ const handleSave = () => {
     <n-card class="settings-card" :bordered="false" :style="modalThemeVars">
       <div class="dialog-header">
         <div>
-          <p class="dialog-title">{{ t('ui.settings.title') }}</p>
+          <p class="dialog-title">Settings</p>
         </div>
         <n-button
           quaternary
           circle
           class="close-button"
-          :aria-label="t('ui.settings.close')"
+          aria-label="Close"
           @click="handleClose"
         >
           <template #icon>
@@ -231,23 +242,15 @@ const handleSave = () => {
       </div>
 
       <div class="settings-body">
+        <!-- Theme Section -->
         <section class="settings-section">
-          <p class="section-heading">{{ t('ui.settings.general') }}</p>
-          <n-form :model="formState" label-placement="top" class="settings-form">
-            <n-form-item :label="t('ui.settings.interfaceLanguage')">
-              <n-select v-model:value="formState.language" :options="resolvedLanguageOptions" size="large" />
-            </n-form-item>
-          </n-form>
-        </section>
-
-        <section class="settings-section">
-          <p class="section-heading">{{ t('ui.settings.appearance') }}</p>
+          <p class="section-heading">Appearance</p>
           <div class="field">
             <div class="field-label">
-              <span>{{ t('ui.settings.themePreference') }}</span>
+              <span>Theme Preference</span>
             </div>
             <n-radio-group v-model:value="formState.theme" class="theme-group">
-              <n-radio v-for="option in themeControls" :key="option.value" :value="option.value">
+              <n-radio v-for="option in themeOptions" :key="option.value" :value="option.value">
                 <div class="theme-chip" :class="{ active: formState.theme === option.value }">
                   <div class="chip-title">
                     <n-icon size="18">
@@ -261,42 +264,23 @@ const handleSave = () => {
           </div>
         </section>
 
+        <!-- LLM Provider Section -->
         <section class="settings-section">
-          <p class="section-heading">{{ t('ui.settings.agentSelection') }}</p>
-          <p class="section-description">{{ t('ui.settings.agentSelectionDescription') }}</p>
-          <n-radio-group v-model:value="formState.agent" class="agent-grid">
-            <n-radio v-for="agent in agentOptions" :key="agent.id" :value="agent.id">
-              <div class="agent-card" :class="{ active: formState.agent === agent.id }" :data-agent="agent.id">
-                <div class="agent-icon" aria-hidden="true" :data-agent="agent.id">
+          <p class="section-heading">LLM Provider</p>
+          <p class="section-description">Select which AI model to use for action planning</p>
+          <n-radio-group :value="formState.llmConfig.provider" class="provider-grid" @update:value="handleProviderChange">
+            <n-radio v-for="provider in providerOptions" :key="provider.id" :value="provider.id">
+              <div class="provider-card" :class="{ active: formState.llmConfig.provider === provider.id }">
+                <div class="provider-icon" :data-provider="provider.id">
                   <n-icon size="22">
-                    <component :is="agent.icon" />
+                    <component :is="provider.icon" />
                   </n-icon>
                 </div>
-                <div class="agent-content">
-                  <div class="agent-title-row">
-                    <p class="agent-name">{{ agent.name }}</p>
-                    <n-tag v-if="agent.badge" size="small" type="info" class="agent-badge" round>
-                      {{ agent.badge }}
-                    </n-tag>
-                  </div>
-                  <p class="agent-description">{{ agent.description }}</p>
-                  <div class="agent-path-group" @click.stop>
-                    <label class="agent-path-label" :for="`agent-path-${agent.id}`">
-                      {{ t('ui.settings.agentInstallPath') }}
-                    </label>
-                    <div class="agent-path-input">
-                      <n-input
-                        :id="`agent-path-${agent.id}`"
-                        v-model:value="formState.agentPaths[agent.id]"
-                        :placeholder="t('ui.settings.agentInstallPlaceholder')"
-                        :disabled="formState.agent !== agent.id"
-                        size="small"
-                      />
-                    </div>
-                    <p class="agent-path-hint">{{ t('ui.settings.agentInstallHint') }}</p>
-                  </div>
+                <div class="provider-content">
+                  <p class="provider-name">{{ provider.name }}</p>
+                  <p class="provider-description">{{ provider.description }}</p>
                 </div>
-                <span class="radio-indicator" aria-hidden="true">
+                <span class="radio-indicator">
                   <span />
                 </span>
               </div>
@@ -304,12 +288,52 @@ const handleSave = () => {
           </n-radio-group>
         </section>
 
+        <!-- API Configuration Section -->
         <section class="settings-section">
-          <p class="section-heading">{{ t('ui.settings.dataManagement') }}</p>
+          <p class="section-heading">API Configuration</p>
+          <n-form :model="formState.llmConfig" label-placement="top" class="settings-form">
+            <n-form-item v-if="showApiKeyField" label="API Key">
+              <n-input
+                v-model:value="formState.llmConfig.apiKey"
+                type="password"
+                show-password-on="click"
+                :placeholder="apiKeyPlaceholder"
+                size="large"
+              />
+            </n-form-item>
+
+            <n-form-item v-if="showEndpointField" label="Custom Endpoint">
+              <n-input
+                v-model:value="formState.llmConfig.endpoint"
+                placeholder="https://api.example.com/v1"
+                size="large"
+              />
+            </n-form-item>
+
+            <n-form-item v-if="showModelSelect" label="Model">
+              <n-select
+                v-model:value="formState.llmConfig.model"
+                :options="currentModelOptions"
+                size="large"
+              />
+            </n-form-item>
+          </n-form>
+
+          <div v-if="formState.llmConfig.provider === 'ollama'" class="info-box">
+            <p class="info-text">
+              Make sure Ollama is running locally on port 11434.
+              <a href="https://ollama.ai" target="_blank" class="info-link">Get Ollama</a>
+            </p>
+          </div>
+        </section>
+
+        <!-- Data Management Section -->
+        <section class="settings-section">
+          <p class="section-heading">Data Management</p>
           <div class="data-card">
             <div>
-              <p class="data-title">{{ t('ui.settings.clearDataTitle') }}</p>
-              <p class="data-description">{{ t('ui.settings.clearDataDescription') }}</p>
+              <p class="data-title">Clear Session Data</p>
+              <p class="data-description">Reset logs, screenshots, and session state</p>
             </div>
             <n-button strong secondary type="error" class="danger-button" @click="handleClearData">
               <template #icon>
@@ -317,15 +341,15 @@ const handleSave = () => {
                   <TrashOutline />
                 </n-icon>
               </template>
-              {{ t('ui.settings.clearDataCta') }}
+              Clear Data
             </n-button>
           </div>
         </section>
       </div>
 
       <div class="dialog-footer">
-        <n-button quaternary @click="handleCancel">{{ t('ui.settings.cancel') }}</n-button>
-        <n-button type="primary" strong @click="handleSave">{{ t('ui.settings.save') }}</n-button>
+        <n-button quaternary @click="handleCancel">Cancel</n-button>
+        <n-button type="primary" strong @click="handleSave">Save</n-button>
       </div>
     </n-card>
   </n-modal>
@@ -333,7 +357,7 @@ const handleSave = () => {
 
 <style scoped>
 .settings-modal :deep(.n-card) {
-  width: min(720px, calc(100vw - 2rem));
+  width: min(640px, calc(100vw - 2rem));
   border-radius: 26px;
   box-shadow: 0 35px 80px rgba(0, 0, 0, 0.5);
 }
@@ -344,10 +368,6 @@ const handleSave = () => {
   backdrop-filter: blur(4px);
 }
 
-.settings-modal :deep(.n-modal-body-wrapper) {
-  position: relative;
-}
-
 .settings-card {
   display: flex;
   flex-direction: column;
@@ -355,7 +375,6 @@ const handleSave = () => {
   background: var(--settings-surface);
   border: 1px solid var(--settings-border);
   border-radius: 26px;
-  width: 600px;
   color: var(--settings-strong);
 }
 
@@ -364,6 +383,8 @@ const handleSave = () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--settings-border);
 }
 
 .dialog-title {
@@ -371,11 +392,6 @@ const handleSave = () => {
   font-size: 1.35rem;
   font-weight: 600;
   color: var(--settings-strong);
-}
-
-.dialog-meta {
-  margin: 0.25rem 0 0;
-  color: var(--settings-muted);
 }
 
 .close-button {
@@ -395,38 +411,9 @@ const handleSave = () => {
   padding: 0 0 1.25rem;
 }
 
-.settings-section:first-of-type {
-  margin-top: 0.5rem;
-}
-
 .settings-section:last-of-type {
   border-bottom: none;
   padding-bottom: 0;
-}
-
-.settings-form :deep(.n-form-item) {
-  margin-bottom: 0;
-}
-
-.settings-form :deep(.n-base-selection) {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--settings-border);
-  border-radius: 12px;
-  min-height: 44px;
-  transition: border 0.2s ease, background 0.2s ease;
-}
-
-.settings-form :deep(.n-base-selection:hover) {
-  border-color: var(--settings-accent);
-}
-
-.settings-form :deep(.n-base-selection-label) {
-  font-weight: 600;
-  color: var(--settings-strong);
-}
-
-.settings-form :deep(.n-base-selection-placeholder) {
-  color: var(--settings-muted);
 }
 
 .section-heading {
@@ -452,7 +439,7 @@ const handleSave = () => {
 
 .theme-group {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
   padding: 0.4rem;
   border-radius: 14px;
@@ -465,7 +452,7 @@ const handleSave = () => {
 }
 
 .theme-group :deep(.n-radio .n-radio__dot-wrapper),
-.agent-grid :deep(.n-radio .n-radio__dot-wrapper) {
+.provider-grid :deep(.n-radio .n-radio__dot-wrapper) {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -487,7 +474,7 @@ const handleSave = () => {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  transition: border 0.2s ease, background 0.2s ease, color 0.2s ease;
+  transition: border 0.2s ease, background 0.2s ease;
 }
 
 .theme-chip:hover {
@@ -498,7 +485,6 @@ const handleSave = () => {
   border-color: var(--settings-accent);
   background: var(--settings-accent);
   color: #fff;
-  box-shadow: 0 0 0 1px rgba(64, 152, 255, 0.3);
 }
 
 .chip-title {
@@ -509,12 +495,9 @@ const handleSave = () => {
   justify-content: center;
 }
 
-.theme-chip.active .chip-title {
+.theme-chip.active .chip-title,
+.theme-chip.active .chip-label {
   color: #fff;
-}
-
-.chip-title :deep(.n-icon) {
-  color: currentColor;
 }
 
 .chip-label {
@@ -522,37 +505,24 @@ const handleSave = () => {
   color: var(--settings-strong);
 }
 
-.theme-chip.active .chip-label {
-  color: #fff;
-}
-
-.chip-sub {
-  color: var(--settings-muted);
-  font-size: 0.82rem;
-}
-
-.theme-chip.active .chip-sub {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.agent-grid {
+.provider-grid {
   display: grid;
   gap: 0.75rem;
 }
 
-.agent-grid :deep(.n-radio) {
+.provider-grid :deep(.n-radio) {
   width: 100%;
 }
 
-.agent-grid :deep(.n-radio__dot) {
+.provider-grid :deep(.n-radio__dot) {
   display: none;
 }
 
-.agent-grid :deep(.n-radio__label) {
+.provider-grid :deep(.n-radio__label) {
   width: 100%;
 }
 
-.agent-card {
+.provider-card {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 1rem;
@@ -564,91 +534,52 @@ const handleSave = () => {
   transition: border 0.2s ease, background 0.2s ease;
 }
 
-.agent-card:hover {
+.provider-card:hover {
   border-color: var(--settings-accent);
   background: var(--settings-panel-active);
 }
 
-.agent-card.active {
+.provider-card.active {
   border-color: var(--settings-accent);
   background: rgba(64, 152, 255, 0.12);
   box-shadow: 0 0 0 1px rgba(64, 152, 255, 0.25);
 }
 
-.agent-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+.provider-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   color: #fff;
-  font-size: 1.5rem;
 }
 
-.agent-icon[data-agent='codex'] {
-  background: linear-gradient(135deg, #2563eb, #60a5fa);
+.provider-icon[data-provider='openai'] {
+  background: linear-gradient(135deg, #10a37f, #0da37f);
 }
 
-.agent-icon[data-agent='gemini'] {
-  background: linear-gradient(135deg, #7c3aed, #c084fc);
+.provider-icon[data-provider='anthropic'] {
+  background: linear-gradient(135deg, #cc785c, #d4a574);
 }
 
-.agent-icon[data-agent='claude'] {
-  background: linear-gradient(135deg, #f97316, #facc15);
+.provider-icon[data-provider='ollama'] {
+  background: linear-gradient(135deg, #374151, #6b7280);
 }
 
-.agent-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.2rem;
+.provider-icon[data-provider='custom'] {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
 }
 
-.agent-name {
+.provider-name {
   margin: 0;
   font-weight: 600;
   color: var(--settings-strong);
 }
 
-.agent-description {
-  margin: 0;
+.provider-description {
+  margin: 0.2rem 0 0;
   color: var(--settings-muted);
-  font-size: 0.92rem;
-}
-
-.agent-path-group {
-  margin-top: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.agent-path-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--settings-muted);
-}
-
-.agent-path-input {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.agent-path-input :deep(.n-input) {
-  flex: 1;
-  --n-border-radius: 10px;
-}
-
-.agent-path-hint {
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--settings-muted);
-}
-
-.agent-badge {
-  text-transform: uppercase;
+  font-size: 0.85rem;
 }
 
 .radio-indicator {
@@ -661,7 +592,7 @@ const handleSave = () => {
   justify-content: center;
 }
 
-.agent-card.active .radio-indicator {
+.provider-card.active .radio-indicator {
   border-color: var(--settings-accent);
 }
 
@@ -672,8 +603,52 @@ const handleSave = () => {
   background: transparent;
 }
 
-.agent-card.active .radio-indicator span {
+.provider-card.active .radio-indicator span {
   background: var(--settings-accent);
+}
+
+.settings-form :deep(.n-form-item) {
+  margin-bottom: 1rem;
+}
+
+.settings-form :deep(.n-form-item:last-child) {
+  margin-bottom: 0;
+}
+
+.settings-form :deep(.n-input),
+.settings-form :deep(.n-base-selection) {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--settings-border);
+  border-radius: 12px;
+  min-height: 44px;
+}
+
+.settings-form :deep(.n-input:hover),
+.settings-form :deep(.n-base-selection:hover) {
+  border-color: var(--settings-accent);
+}
+
+.info-box {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(43, 124, 238, 0.1);
+  border: 1px solid rgba(43, 124, 238, 0.2);
+  border-radius: 12px;
+}
+
+.info-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--settings-muted);
+}
+
+.info-link {
+  color: var(--settings-accent);
+  text-decoration: none;
+}
+
+.info-link:hover {
+  text-decoration: underline;
 }
 
 .data-card {
@@ -706,11 +681,6 @@ const handleSave = () => {
   color: #fecdd3;
 }
 
-.dialog-header:nth-child(1) {
-  padding: 0.5rem 0px;
-  border-bottom: 1px solid var(--settings-border);
-}
-
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
@@ -718,12 +688,5 @@ const handleSave = () => {
   padding-top: 1rem;
   margin-top: 0.5rem;
   border-top: 1px solid var(--settings-border);
-}
-
-.danger-button :deep(.n-button__content) {
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
 }
 </style>

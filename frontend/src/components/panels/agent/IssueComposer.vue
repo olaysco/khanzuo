@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { NCard, NButton, NText, NInput, NSpace, NIcon } from 'naive-ui'
+import { NCard, NButton, NText, NInput, NIcon } from 'naive-ui'
 import { SendOutline } from '@vicons/ionicons5'
 
 const props = defineProps({
@@ -20,7 +19,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'send'])
-const { t } = useI18n()
 
 const hasText = computed(() => props.modelValue.trim().length > 0)
 

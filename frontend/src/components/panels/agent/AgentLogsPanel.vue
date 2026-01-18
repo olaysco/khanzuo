@@ -1,8 +1,7 @@
 <script setup>
 import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { NCard, NButton, NText, NIcon, NEmpty, NScrollbar } from 'naive-ui'
-import { RefreshOutline, SparklesOutline } from '@vicons/ionicons5'
+import { NCard, NText, NIcon, NEmpty, NScrollbar } from 'naive-ui'
+import { SparklesOutline } from '@vicons/ionicons5'
 
 const props = defineProps({
   logs: {
@@ -20,7 +19,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['refresh'])
-const { t } = useI18n()
 
 const orderedLogs = computed(() => [...props.logs].reverse())
 
@@ -46,7 +44,7 @@ const handleRefresh = () => {
           </div>
         </div>
         <div v-else class="logs-empty">
-          <n-empty :description="t('ui.logs.empty')">
+          <n-empty description="No agent activity yet">
             <template #icon>
               <n-icon size="48">
                 <SparklesOutline />

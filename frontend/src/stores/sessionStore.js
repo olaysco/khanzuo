@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-export const DEFAULT_TARGET_URL = 'https://openprovider.eu'
+export const DEFAULT_TARGET_URL = 'https://example.com'
 
 const createRouterState = () => ({
   intent: 'idle',
@@ -10,9 +10,8 @@ const createRouterState = () => ({
   decidedAt: null,
 })
 
-const createSession = (id, title) => ({
+const createSession = (id) => ({
   id,
-  title,
   targetUrl: DEFAULT_TARGET_URL,
   liveUrl: DEFAULT_TARGET_URL,
   status: 'idle',
@@ -64,147 +63,93 @@ const applyRouterDecision = (session, decision = {}) => {
     status: decision.status ?? 'planned',
   }
 }
-const createDefaultAgentPreferences = () => ({
-  selected: 'codex',
-  paths: {
-    codex: '/usr/local/bin/codex',
-    gemini: '',
-    claude: '',
-  },
+
+// LLM Provider configuration
+const createDefaultLLMConfig = () => ({
+  provider: 'openai', // 'openai', 'anthropic', 'ollama', 'custom'
+  apiKey: '',
+  model: 'gpt-4o-mini',
+  endpoint: '', // For custom provider
+  ollamaModel: 'llama3.2',
 })
 
 
 export const useSessionStore = defineStore('session', () => {
-  const tabs = ref([
-    createSession(createSessionId(), 'Session 1'),
-  ])
-  const activeTabId = ref(tabs.value[0].id)
-  const agentPreferences = ref(createDefaultAgentPreferences())
+  // Single session instead of tabs
+  const session = ref(createSession(createSessionId()))
+  const llmConfig = ref(createDefaultLLMConfig())
   const bridge = getBridge()
   let frameListenerOff = null
   let statusListenerOff = null
   let agentLogListenerOff = null
 
-  const activeSession = computed(() =>
-    tabs.value.find((tab) => tab.id === activeTabId.value) ?? tabs.value[0],
-  )
+  // Keep activeSession as computed for compatibility with existing code
+  const activeSession = computed(() => session.value)
 
   const activePromptValue = computed({
-    get: () => activeSession.value?.promptValue ?? '',
+    get: () => session.value?.promptValue ?? '',
     set: (value) => {
-      if (!activeSession.value) return
-      activeSession.value.promptValue = value
+      if (!session.value) return
+      session.value.promptValue = value
     },
   })
 
-  const setActiveTab = (tabId) => {
-    activeTabId.value = tabId
-  }
-
-  const addTab = (title) => {
-    const index = tabs.value.length + 1
-    const session = createSession(createSessionId(), title ?? `Session ${index}`)
-    tabs.value.push(session)
-    activeTabId.value = session.id
-    return session
-  }
-
-  const removeTab = async (tabId) => {
-    if (!tabId || tabs.value.length === 0) return
-    const index = tabs.value.findIndex((tab) => tab.id === tabId)
-    if (index === -1) return
-    const session = tabs.value[index]
-
-    if (bridge && typeof bridge.stopSession === 'function' && isSessionActive(session.status)) {
-      try {
-        await bridge.stopSession({ sessionId: session.id })
-      } catch (error) {
-        addLogToSession(session, {
-          status: 'warning',
-          title: 'Session stop failed',
-          detail: error?.message ?? String(error ?? 'Unknown error'),
-        })
-      }
-    }
-
-    if (tabs.value.length === 1) {
-      tabs.value[0] = createSession(createSessionId(), 'Session 1')
-      activeTabId.value = tabs.value[0].id
-      return
-    }
-
-    tabs.value.splice(index, 1)
-    if (activeTabId.value === tabId) {
-      const fallback = tabs.value[index] ?? tabs.value[index - 1] ?? tabs.value[0]
-      activeTabId.value = fallback?.id ?? ''
-    }
-  }
-
-  const renameTab = (tabId, title) => {
-    const trimmed = title?.trim()
-    if (!trimmed) return
-    const session = tabs.value.find((tab) => tab.id === tabId)
-    if (session) session.title = trimmed
-  }
-
 const updateTargetUrl = (value) => {
-  if (!activeSession.value) return
-  activeSession.value.targetUrl = value
-  if (!activeSession.value.manualControl) {
-    activeSession.value.liveUrl = value
+  if (!session.value) return
+  session.value.targetUrl = value
+  if (!session.value.manualControl) {
+    session.value.liveUrl = value
   }
 }
 
-  const addLogToSession = (session, payload) => {
-    if (!session) return
-    session.logs.push({
+  const addLogToSession = (targetSession, payload) => {
+    if (!targetSession) return
+    targetSession.logs.push({
       id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
       timestamp: new Date().toLocaleTimeString(),
       status: payload.status ?? 'info',
       title: payload.title,
       detail: payload.detail,
     })
-    session.lastSync = new Date().toLocaleTimeString()
+    targetSession.lastSync = new Date().toLocaleTimeString()
   }
 
-  const attachContextFolders = (session, folders = []) => {
-    if (!session || !Array.isArray(folders) || folders.length === 0) return 0
-    const existingPaths = new Set((session.contextFolders ?? []).map((folder) => folder.path))
+  const addLog = (payload) => {
+    addLogToSession(session.value, payload)
+  }
+
+  const attachContextFolders = (targetSession, folders = []) => {
+    if (!targetSession || !Array.isArray(folders) || folders.length === 0) return 0
+    const existingPaths = new Set((targetSession.contextFolders ?? []).map((folder) => folder.path))
     let added = 0
     folders.forEach((folder) => {
       if (!folder?.path || existingPaths.has(folder.path)) return
       const record = createFolderRecord(folder)
-      if (!session.contextFolders) session.contextFolders = []
-      session.contextFolders.push(record)
+      if (!targetSession.contextFolders) targetSession.contextFolders = []
+      targetSession.contextFolders.push(record)
       existingPaths.add(record.path)
       added += 1
     })
     return added
   }
 
-  const setAgentPreferences = (payload = {}) => {
-    const selected = typeof payload.agent === 'string' ? payload.agent : agentPreferences.value.selected
-    const nextPaths = {
-      ...agentPreferences.value.paths,
-      ...(payload.paths ?? {}),
+  const setLLMConfig = (config = {}) => {
+    llmConfig.value = {
+      ...llmConfig.value,
+      ...config,
     }
-    agentPreferences.value = {
-      selected,
-      paths: nextPaths,
-    }
-    if (bridge && typeof bridge.setAgentBinaries === 'function') {
-      const plainPaths = JSON.parse(JSON.stringify(nextPaths))
-      bridge.setAgentBinaries({ paths: plainPaths }).catch((error) => {
-        console.error('[settings] Failed to sync agent binaries', error)
+    // Sync to electron main process
+    if (bridge && typeof bridge.setLLMConfig === 'function') {
+      bridge.setLLMConfig(JSON.parse(JSON.stringify(llmConfig.value))).catch((error) => {
+        console.error('[settings] Failed to sync LLM config', error)
       })
     }
   }
 
   const selectContextFolders = async () => {
-    const session = activeSession.value
-    if (!session) return 0
+    if (!session.value) return 0
     if (!bridge || typeof bridge.selectContextFolders !== 'function') {
-      addLogToSession(session, {
+      addLog({
         status: 'error',
         title: 'Folder picker unavailable',
         detail: 'Desktop bridge missing selectContextFolders.',
@@ -213,15 +158,15 @@ const updateTargetUrl = (value) => {
     }
     try {
       const folders = await bridge.selectContextFolders()
-      const added = attachContextFolders(session, folders)
+      const added = attachContextFolders(session.value, folders)
       if (added > 0) {
-        addLogToSession(session, {
+        addLog({
           status: 'success',
           title: 'Added context folders',
           detail: `${added} folder${added > 1 ? 's' : ''} attached for analysis.`,
         })
       } else if (folders?.length) {
-        addLogToSession(session, {
+        addLog({
           status: 'info',
           title: 'No new folders added',
           detail: 'Selected folders were already attached.',
@@ -229,7 +174,7 @@ const updateTargetUrl = (value) => {
       }
       return added
     } catch (error) {
-      addLogToSession(session, {
+      addLog({
         status: 'error',
         title: 'Failed to add context folder',
         detail: error?.message ?? String(error ?? 'Unknown error'),
@@ -239,12 +184,11 @@ const updateTargetUrl = (value) => {
   }
 
   const removeContextFolder = (folderId) => {
-    const session = activeSession.value
-    if (!session || !folderId || !Array.isArray(session.contextFolders)) return
-    const index = session.contextFolders.findIndex((folder) => folder.id === folderId)
+    if (!session.value || !folderId || !Array.isArray(session.value.contextFolders)) return
+    const index = session.value.contextFolders.findIndex((folder) => folder.id === folderId)
     if (index === -1) return
-    const [removed] = session.contextFolders.splice(index, 1)
-    addLogToSession(session, {
+    const [removed] = session.value.contextFolders.splice(index, 1)
+    addLog({
       status: 'warning',
       title: 'Removed context folder',
       detail: removed?.name ?? folderId,
@@ -252,72 +196,69 @@ const updateTargetUrl = (value) => {
   }
 
   const startSession = async () => {
-    const session = activeSession.value
-    if (!session || session.isStarting || isSessionActive(session.status)) return
-    session.status = 'starting'
-    session.isStarting = true
-    session.frameSrc = ''
-    // session.id = await CreateSessionID();
-    const targetUrl = session.targetUrl?.trim()
+    if (!session.value || session.value.isStarting || isSessionActive(session.value.status)) return
+    session.value.status = 'starting'
+    session.value.isStarting = true
+    session.value.frameSrc = ''
+    const targetUrl = session.value.targetUrl?.trim()
     if (!targetUrl) {
-      addLogToSession(session, {
+      addLog({
         status: 'error',
         title: 'Missing target URL',
         detail: 'Please provide a URL before starting a session.',
       })
-      session.status = 'idle'
-      session.isStarting = false
+      session.value.status = 'idle'
+      session.value.isStarting = false
       return
     }
     if (!bridge || typeof bridge.startSession !== 'function') {
-      addLogToSession(session, {
+      addLog({
         status: 'error',
         title: 'Bridge unavailable',
         detail: 'Unable to reach the desktop agent. Is Electron running?',
       })
-      session.status = 'idle'
-      session.isStarting = false
+      session.value.status = 'idle'
+      session.value.isStarting = false
       return
     }
 
     try {
-      await bridge.startSession({ sessionId: session.id, targetUrl })
-      session.status = 'running'
-      session.captureStatus = 'Capturing'
-      session.liveUrl = targetUrl
-      addLogToSession(session, {
+      await bridge.startSession({ sessionId: session.value.id, targetUrl })
+      session.value.status = 'running'
+      session.value.captureStatus = 'Capturing'
+      session.value.liveUrl = targetUrl
+      addLog({
         status: 'success',
         title: 'Session started',
         detail: `Navigating to ${targetUrl}`,
       })
     } catch (error) {
-      addLogToSession(session, {
+      addLog({
         status: 'error',
         title: 'Failed to start session',
         detail: error?.message ?? String(error ?? 'Unknown error'),
       })
-      session.status = 'idle'
+      session.value.status = 'idle'
     } finally {
-      session.isStarting = false
+      session.value.isStarting = false
     }
   }
 
   const stopSession = async (logPayloads = []) => {
-    const session = activeSession.value
-    if (!session) return
-    const previousStatus = session.status
-    session.status = 'idle'
-    session.isStarting = false
-    session.frameSrc = ''
-    session.captureStatus = 'Ready'
-    session.manualControl = false
-    session.liveUrl = session.targetUrl
+    if (!session.value) return
+    const previousStatus = session.value.status
+    session.value.status = 'idle'
+    session.value.isStarting = false
+    session.value.frameSrc = ''
+    session.value.captureStatus = 'Ready'
+    session.value.manualControl = false
+    session.value.liveUrl = session.value.targetUrl
 
     if (bridge && typeof bridge.stopSession === 'function' && isSessionActive(previousStatus)) {
       try {
-        await bridge.stopSession({ sessionId: session.id })
+        await bridge.stopSession({ sessionId: session.value.id })
       } catch (error) {
-        addLogToSession(session, {
+        addLog({
           status: 'warning',
           title: 'Stop session failed',
           detail: error?.message ?? String(error ?? 'Unknown error'),
@@ -325,57 +266,53 @@ const updateTargetUrl = (value) => {
       }
     }
 
-    logPayloads.forEach((payload) => addLogToSession(session, payload))
+    logPayloads.forEach((payload) => addLog(payload))
   }
 
   const processPrompt = async () => {
-    const session = activeSession.value
-    if (!session) return false
-    const text = session.promptValue.trim()
+    if (!session.value) return false
+    const text = session.value.promptValue.trim()
     if (!text) return false
-    addLogToSession(session, {
+    addLog({
       title: text.slice(0, 48),
       detail: text,
       status: 'info',
     })
-    session.promptValue = ''
-    session.routerState = {
-      ...session.routerState,
+    session.value.promptValue = ''
+    session.value.routerState = {
+      ...session.value.routerState,
       status: 'routing',
     }
-    if (!bridge || typeof bridge.routerDecision !== 'function') {
-      addLogToSession(session, {
+    if (!bridge || typeof bridge.planActions !== 'function') {
+      addLog({
         status: 'error',
-        title: 'Router unavailable',
-        detail: 'Desktop bridge missing routerDecision API.',
+        title: 'Action planner unavailable',
+        detail: 'Desktop bridge missing planActions API.',
       })
-      session.routerState.status = 'error'
+      session.value.routerState.status = 'error'
       return false
     }
     try {
-      const contextFolders = Array.isArray(session.contextFolders)
-        ? JSON.parse(JSON.stringify(session.contextFolders))
+      const contextFolders = Array.isArray(session.value.contextFolders)
+        ? JSON.parse(JSON.stringify(session.value.contextFolders))
         : []
-      const selectedAgent = agentPreferences.value?.selected ?? 'codex'
-      const paths = agentPreferences.value?.paths ?? {}
-      const decision = await bridge.routerDecision({
+      const decision = await bridge.planActions({
         prompt: text,
         contextFolders,
-        agent: selectedAgent,
-        binaryPath: paths[selectedAgent] ?? '',
+        llmConfig: JSON.parse(JSON.stringify(llmConfig.value)),
       })
-      applyRouterDecision(session, decision)
-      addLogToSession(session, {
+      applyRouterDecision(session.value, decision)
+      addLog({
         status: 'success',
-        title: `Planned intent: ${decision.intent}`,
+        title: 'Action plan ready',
         detail: decision.summary,
       })
       return decision
     } catch (error) {
-      session.routerState.status = 'error'
-      addLogToSession(session, {
+      session.value.routerState.status = 'error'
+      addLog({
         status: 'error',
-        title: 'Router planning failed',
+        title: 'Action planning failed',
         detail: error?.message ?? String(error ?? 'Unknown error'),
       })
       return false
@@ -383,87 +320,79 @@ const updateTargetUrl = (value) => {
   }
 
   const refreshActiveLogs = () => {
-    const session = activeSession.value
-    if (!session || session.isSyncing) return
-    session.isSyncing = true
+    if (!session.value || session.value.isSyncing) return
+    session.value.isSyncing = true
     setTimeout(() => {
-      session.isSyncing = false
-      session.lastSync = new Date().toLocaleTimeString()
+      session.value.isSyncing = false
+      session.value.lastSync = new Date().toLocaleTimeString()
     }, 1000)
   }
 
   const clearSessionData = () => {
-    tabs.value.forEach((session) => {
-      session.logs = []
-      session.promptValue = ''
-      session.captureStatus = 'Ready'
-      session.lastSync = '--:--'
-      session.isSyncing = false
-      session.status = 'idle'
-      session.isStarting = false
-      session.frameSrc = ''
-      session.manualControl = false
-      session.targetUrl = DEFAULT_TARGET_URL
-      session.liveUrl = DEFAULT_TARGET_URL
-      session.contextFolders = []
-      resetRouterState(session)
-    })
+    session.value.logs = []
+    session.value.promptValue = ''
+    session.value.captureStatus = 'Ready'
+    session.value.lastSync = '--:--'
+    session.value.isSyncing = false
+    session.value.status = 'idle'
+    session.value.isStarting = false
+    session.value.frameSrc = ''
+    session.value.manualControl = false
+    session.value.targetUrl = DEFAULT_TARGET_URL
+    session.value.liveUrl = DEFAULT_TARGET_URL
+    session.value.contextFolders = []
+    resetRouterState(session.value)
+  }
+
+  const resetSession = () => {
+    session.value = createSession(createSessionId())
   }
 
   const setFrameSource = (payload) => {
-    // Handle legacy string payloads so we don't break dev sessions
+    // Handle legacy string payloads
     if (typeof payload === 'string') {
-      const session = activeSession.value
-      if (!session) return
-      session.frameSrc = payload
+      if (!session.value) return
+      session.value.frameSrc = payload
       return
     }
 
     const { sessionId, frameDataUri } = payload ?? {}
-    if (!sessionId) return
-    const session = tabs.value.find((tab) => tab.id === sessionId)
-    if (!session) return
-    session.frameSrc = typeof frameDataUri === 'string' ? frameDataUri : ''
-    if (session.frameSrc) {
-      session.captureStatus = 'Capturing'
+    // Accept frame if sessionId matches or not provided
+    if (sessionId && sessionId !== session.value?.id) return
+    if (!session.value) return
+    session.value.frameSrc = typeof frameDataUri === 'string' ? frameDataUri : ''
+    if (session.value.frameSrc) {
+      session.value.captureStatus = 'Capturing'
     }
   }
 
-  const findSession = (sessionId) => {
-    if (!sessionId) return activeSession.value
-    return tabs.value.find((tab) => tab.id === sessionId)
+  const toggleManualControl = async () => {
+    if (!session.value) return
+    session.value.manualControl = !session.value.manualControl
   }
 
-  const toggleManualControl = async (sessionId) => {
-    const session = findSession(sessionId)
-    if (!session) return
-    session.manualControl = !session.manualControl
-  }
-
-  const updateManualUrl = (sessionId, url) => {
-    const target = findSession(sessionId)
-    if (!target) return
+  const updateManualUrl = (url) => {
+    if (!session.value) return
     if (typeof url === 'string' && url.trim()) {
-      target.liveUrl = url.trim()
+      session.value.liveUrl = url.trim()
     }
   }
 
   const handleStatusUpdate = (payload) => {
     const { sessionId, status, captureStatus, log } = payload ?? {}
-    if (!sessionId) return
-    const session = tabs.value.find((tab) => tab.id === sessionId)
-    if (!session) return
-    if (status) session.status = typeof status === 'string' ? status.trim().toLowerCase() : status
-    if (captureStatus) session.captureStatus = captureStatus
-    if (log) addLogToSession(session, log)
+    // Accept if sessionId matches or not provided
+    if (sessionId && sessionId !== session.value?.id) return
+    if (!session.value) return
+    if (status) session.value.status = typeof status === 'string' ? status.trim().toLowerCase() : status
+    if (captureStatus) session.value.captureStatus = captureStatus
+    if (log) addLog(log)
   }
 
   const handleAgentLog = (payload) => {
     const { sessionId, ...logPayload } = payload ?? {}
-    if (!sessionId) return
-    const session = tabs.value.find((tab) => tab.id === sessionId)
-    if (!session) return
-    addLogToSession(session, logPayload)
+    // Accept if sessionId matches or not provided
+    if (sessionId && sessionId !== session.value?.id) return
+    addLog(logPayload)
   }
 
   const registerBridgeListeners = () => {
@@ -480,33 +409,26 @@ const updateTargetUrl = (value) => {
   }
 
   registerBridgeListeners()
-  if (bridge && typeof bridge.setAgentBinaries === 'function') {
-    const plainPaths = JSON.parse(JSON.stringify(agentPreferences.value.paths))
-    bridge.setAgentBinaries({ paths: plainPaths }).catch(() => {})
-  }
 
   return {
-    tabs,
-    activeTabId,
+    session,
     activeSession,
     activePromptValue,
-    agentPreferences,
-    setActiveTab,
-    addTab,
-    renameTab,
-    removeTab,
+    llmConfig,
     updateTargetUrl,
     startSession,
     stopSession,
     processPrompt,
     refreshActiveLogs,
     clearSessionData,
+    resetSession,
     setFrameSource,
     toggleManualControl,
     updateManualUrl,
     selectContextFolders,
     removeContextFolder,
-    setAgentPreferences,
+    setLLMConfig,
+    addLog,
     DEFAULT_TARGET_URL,
   }
 })

@@ -1,8 +1,6 @@
 <script setup>
-import { NText, NTooltip } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
+import { NText, NTooltip, NIcon } from 'naive-ui'
 import { SettingsOutline } from '@vicons/ionicons5'
-import { NIcon } from 'naive-ui'
 
 const props = defineProps({
   agentStatus: {
@@ -25,8 +23,6 @@ const props = defineProps({
 
 const emit = defineEmits(['open-settings'])
 
-const { t } = useI18n()
-
 const handleSettingsClick = () => {
   emit('open-settings')
 }
@@ -35,14 +31,14 @@ const handleSettingsClick = () => {
 <template>
   <footer class="app-footer">
     <div class="footer-segment">
-      <n-text depth="3">{{ t('ui.footer.agentStatus') }}</n-text>
+      <n-text depth="3">Agent</n-text>
       <span class="dot" />
       <n-text strong>{{ props.agentStatus }}</n-text>
       <span class="divider" />
       <n-text depth="3">{{ props.version }}</n-text>
     </div>
     <div class="footer-segment">
-      <n-text depth="3">{{ t('ui.footer.capture') }}</n-text>
+      <n-text depth="3">Capture</n-text>
       <span class="dot" />
       <n-text strong>{{ props.captureStatus }}</n-text>
     </div>
@@ -58,7 +54,7 @@ const handleSettingsClick = () => {
         Open settings
       </n-tooltip>
       <span class="divider" />
-      <n-text depth="3">{{ t('ui.footer.serverTime') }}</n-text>
+      <n-text depth="3">Server Time</n-text>
       <span class="dot" />
       <n-text strong>{{ props.serverTime }}</n-text>
     </div>

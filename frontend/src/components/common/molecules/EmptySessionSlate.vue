@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { NText, NIcon } from 'naive-ui'
 import { LaptopOutline } from '@vicons/ionicons5'
 
@@ -15,7 +14,6 @@ const props = defineProps({
   },
 })
 
-const { t } = useI18n()
 const statusClasses = computed(() => ['status-dot', props.streamReady ? 'ok' : 'pending'])
 </script>
 
@@ -26,16 +24,16 @@ const statusClasses = computed(() => ['status-dot', props.streamReady ? 'ok' : '
         <LaptopOutline />
       </n-icon>
     </div>
-    <n-text class="view-title">{{ t('ui.view.waitingTitle') }}</n-text>
+    <n-text class="view-title">Waiting for Session</n-text>
     <n-text depth="3" class="view-description">
-      {{ t('ui.view.waitingDescription') }}
+      Enter a URL and start a session to begin debugging
     </n-text>
     <div class="status-line">
       <span :class="statusClasses" />
-      <n-text depth="3">{{ t('ui.view.streamReady') }}</n-text>
+      <n-text depth="3">{{ props.streamReady ? 'Ready' : 'Waiting' }}</n-text>
       <span class="divider" />
       <n-text depth="3">
-        {{ props.hasInput ? '-' : t('ui.view.noInput') }}
+        {{ props.hasInput ? '-' : 'No input yet' }}
       </n-text>
     </div>
   </div>

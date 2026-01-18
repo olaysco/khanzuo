@@ -2,19 +2,16 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useOsTheme } from 'naive-ui'
 import { storeToRefs } from 'pinia'
-import { useI18n } from 'vue-i18n'
 import AppHeader from '@/components/layout/header/AppHeader.vue'
 import UserViewPanel from '@/components/panels/session/UserViewPanel.vue'
 import SettingsDialog from '@/pages/SettingsDialog.vue'
 import { useSessionStore, DEFAULT_TARGET_URL } from '@/stores/sessionStore.js'
 
-const { t, locale } = useI18n()
 const osTheme = useOsTheme()
 const sessionStore = useSessionStore()
-const { tabs, activeTabId, activeSession, activePromptValue, agentPreferences } = storeToRefs(sessionStore)
+const { session, activeSession, activePromptValue, llmConfig } = storeToRefs(sessionStore)
 
 const themePreference = ref('dark')
-const selectedLanguage = ref('en-us')
 const showSettings = ref(false)
 const serverTime = ref('--:--:-- UTC')
 let clockTimer = null
@@ -34,11 +31,7 @@ const isStopDisabled = computed(() => !isSessionActive.value)
 const contextFolders = computed(() => activeSession.value?.contextFolders ?? [])
 const routerState = computed(() => activeSession.value?.routerState ?? {})
 const routerPlan = computed(() => routerState.value?.plan ?? [])
-const routerIntentLabel = computed(() => routerState.value?.intent ?? 'idle')
-
-watch(selectedLanguage, (value) => {
-  locale.value = value
-})
+const routerIntentLabel = computed(() => routerState.value?.status ?? 'idle')
 
 watch(
   resolvedTheme,
@@ -63,8 +56,8 @@ const handleStopSession = () => {
   if (isStopDisabled.value) return
   sessionStore.stopSession([
     {
-      title: t('ui.events.sessionStopped'),
-      detail: t('ui.events.stopDescription'),
+      title: 'Session Stopped',
+      detail: 'Browser session has been terminated.',
       status: 'error',
     },
   ])
@@ -74,12 +67,12 @@ const handlePromptSend = async () => {
   await sessionStore.processPrompt()
 }
 
-const handleManualToggle = (sessionId) => {
-  sessionStore.toggleManualControl(sessionId)
+const handleManualToggle = () => {
+  sessionStore.toggleManualControl()
 }
 
-const handleManualUrlChange = (sessionId, url) => {
-  sessionStore.updateManualUrl(sessionId, url)
+const handleManualUrlChange = (url) => {
+  sessionStore.updateManualUrl(url)
 }
 
 const handleAddContextFolders = () => {
@@ -90,15 +83,11 @@ const handleRemoveContextFolder = (folderId) => {
   sessionStore.removeContextFolder(folderId)
 }
 
-const handleTabSelect = (tabId) => sessionStore.setActiveTab(tabId)
-const handleAddTab = () => sessionStore.addTab()
-
 const openSettings = () => (showSettings.value = true)
 const closeSettings = () => (showSettings.value = false)
 const handleSettingsSave = (settings) => {
   themePreference.value = settings.theme
-  selectedLanguage.value = settings.language
-  sessionStore.setAgentPreferences({ agent: settings.agent, paths: settings.agentPaths })
+  sessionStore.setLLMConfig(settings.llmConfig)
   closeSettings()
 }
 
@@ -121,12 +110,8 @@ onBeforeUnmount(() => {
   <div class="flex flex-col h-full bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
     <AppHeader
       :status="currentSessionStatus"
-      :tabs="tabs"
-      :active-tab-id="activeTabId"
       :is-starting="activeSession?.isStarting ?? false"
       @stop="handleStopSession"
-      @select-tab="handleTabSelect"
-      @add-tab="handleAddTab"
       @open-settings="openSettings"
     />
 
@@ -142,6 +127,7 @@ onBeforeUnmount(() => {
             class="w-full bg-transparent border-none p-0 text-sm text-white placeholder-[#586c85] focus:ring-0 font-mono"
             :value="displayUrl"
             @input="updateTargetUrl"
+            placeholder="Enter URL to debug..."
           />
           <div class="flex gap-2 text-[#92a9c9]">
             <button class="hover:text-white"><span class="material-symbols-outlined text-[18px]">star_border</span></button>
@@ -152,7 +138,7 @@ onBeforeUnmount(() => {
           <span class="material-symbols-outlined text-[20px]">keyboard_return</span>
         </button>
       </div>
-      <div class="ml-auto text-xs font-mono text-[#586c85]">Session ID: <span class="text-[#92a9c9]">{{ activeSession?.id }}</span></div>
+      <div class="ml-auto text-xs font-mono text-[#586c85]">Session: <span class="text-[#92a9c9]">{{ activeSession?.id?.slice(0, 8) }}</span></div>
     </div>
 
     <main class="flex-1 flex overflow-hidden">
@@ -165,19 +151,16 @@ onBeforeUnmount(() => {
         </div>
         <div class="flex-1 bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col relative border border-[#334155]">
           <user-view-panel
-            v-for="session in tabs"
-            :key="session.id"
-            v-show="session.id === activeTabId"
             class="flex-1"
-            :stream-ready="Boolean(session.targetUrl?.trim())"
-            :frame-src="session.frameSrc"
-            :has-input="Boolean(session.promptValue)"
-            :target-url="session.targetUrl?.trim() || DEFAULT_TARGET_URL"
-            :manual-url="session.liveUrl?.trim() || session.targetUrl?.trim() || DEFAULT_TARGET_URL"
-            :session-id="session.id"
-            :manual-control="session.manualControl ?? false"
-            @toggle-control="() => handleManualToggle(session.id)"
-            @update:manual-url="(value) => handleManualUrlChange(session.id, value)"
+            :stream-ready="Boolean(session?.targetUrl?.trim())"
+            :frame-src="session?.frameSrc"
+            :has-input="Boolean(session?.promptValue)"
+            :target-url="session?.targetUrl?.trim() || DEFAULT_TARGET_URL"
+            :manual-url="session?.liveUrl?.trim() || session?.targetUrl?.trim() || DEFAULT_TARGET_URL"
+            :session-id="session?.id"
+            :manual-control="session?.manualControl ?? false"
+            @toggle-control="handleManualToggle"
+            @update:manual-url="handleManualUrlChange"
           />
         </div>
       </section>
@@ -340,12 +323,8 @@ onBeforeUnmount(() => {
     </footer>
     <settings-dialog
       v-if="showSettings"
-      :language="selectedLanguage"
       :theme="themePreference"
-      :agent="agentPreferences?.selected ?? 'codex'"
-      :agent-paths="agentPreferences?.paths ?? {}"
-      :language-options="[]"
-      :theme-options="[]"
+      :llm-config="llmConfig"
       @close="closeSettings"
       @cancel="closeSettings"
       @save="handleSettingsSave"

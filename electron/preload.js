@@ -10,14 +10,19 @@ function buildEventBridge(channel) {
 }
 
 contextBridge.exposeInMainWorld('khanzuo', {
-  createSessionId: () => ipcRenderer.invoke('agent:createSessionId'),
+  // Session management
   startSession: (payload) => ipcRenderer.invoke('agent:startSession', payload),
   stopSession: (payload) => ipcRenderer.invoke('agent:stopSession', payload),
-  sendPrompt: (payload) => ipcRenderer.invoke('agent:sendPrompt', payload),
+
+  // Context folders
   selectContextFolders: () => ipcRenderer.invoke('agent:selectContextFolders'),
   readContextFile: (payload) => ipcRenderer.invoke('agent:readContextFile', payload),
-  routerDecision: (payload) => ipcRenderer.invoke('agent:routerDecision', payload),
-  setAgentBinaries: (paths) => ipcRenderer.invoke('agent:setAgentBinaries', { paths }),
+
+  // LLM configuration and action planning
+  setLLMConfig: (config) => ipcRenderer.invoke('agent:setLLMConfig', config),
+  planActions: (payload) => ipcRenderer.invoke('agent:planActions', payload),
+
+  // Event listeners
   onStatus: buildEventBridge('session:status'),
   onAgentLog: buildEventBridge('agent:log'),
   onFrameUpdate: buildEventBridge('frame:update'),
