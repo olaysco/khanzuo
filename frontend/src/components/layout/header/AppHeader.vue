@@ -10,6 +10,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  theme: {
+    type: String,
+    default: 'dark',
+  },
 })
 
 const emit = defineEmits(['stop', 'open-settings'])
@@ -17,6 +21,7 @@ const emit = defineEmits(['stop', 'open-settings'])
 const isRunning = computed(() => props.status !== 'idle')
 const statusLabel = computed(() => isRunning.value ? 'Active' : 'Idle')
 const isStopDisabled = computed(() => !isRunning.value || props.isStarting)
+const isDark = computed(() => props.theme === 'dark')
 
 const handleStopSession = () => {
   if (isStopDisabled.value) return
@@ -29,15 +34,15 @@ const openSettings = () => {
 </script>
 
 <template>
-  <header class="flex-none flex items-center justify-between whitespace-nowrap border-b border-[#233348] px-6 py-3 bg-[#111822]">
+  <header class="flex-none flex items-center justify-between whitespace-nowrap border-b px-6 py-3" :class="isDark ? 'border-[#233348] bg-[#111822]' : 'border-gray-200 bg-white'">
       <div class="flex items-center gap-8">
-        <div class="flex items-center gap-3 text-white">
+        <div class="flex items-center gap-3">
           <div class="size-8 flex items-center justify-center bg-primary/20 rounded-lg text-primary">
             <span class="material-symbols-outlined">bug_report</span>
           </div>
           <div>
-            <h2 class="text-white text-lg font-bold leading-tight tracking-tight">Khanzuo</h2>
-            <p class="text-xs text-white/60">AI Bug Reproduction Agent</p>
+            <h2 class="text-lg font-bold leading-tight tracking-tight" :class="isDark ? 'text-white' : 'text-gray-900'">Khanzuo</h2>
+            <p class="text-xs" :class="isDark ? 'text-white/60' : 'text-gray-500'">AI Bug Reproduction Agent</p>
           </div>
         </div>
       </div>
@@ -56,7 +61,7 @@ const openSettings = () => {
             <span class="material-symbols-outlined text-[18px]">stop_circle</span>
             <span>Stop Session</span>
           </button>
-          <button class="flex items-center justify-center h-9 w-9 bg-[#233348] hover:bg-[#324867] text-white rounded-lg" @click="openSettings">
+          <button class="flex items-center justify-center h-9 w-9 rounded-lg" :class="isDark ? 'bg-[#233348] hover:bg-[#324867] text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'" @click="openSettings">
             <span class="material-symbols-outlined text-[20px]">settings</span>
           </button>
         </div>
